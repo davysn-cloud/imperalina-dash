@@ -1,0 +1,609 @@
+PARTE 1: CONTROLE DE ESTOQUE
+1.1 CONCEITOS E ESTRUTURA DE DADOS
+Produto
+Cada produto no sistema deve ter:
+Identificação:
+ID único
+Código SKU ou código de barras
+Nome do produto
+Descrição detalhada (opcional)
+Categoria (vínculo com tabela de categorias)
+Foto do produto (URL opcional)
+Classificação:
+Tipo de produto com 3 opções:
+Revenda: produtos vendidos diretamente ao cliente (ex: shampoo, creme)
+Uso interno: consumidos nos serviços (ex: tintura, acetona, algodão)
+Ambos: pode ser vendido ou usado internamente
+Unidade de medida: unidade, ml, g, kg, litro
+Controle de Estoque:
+Quantidade atual em estoque
+Quantidade mínima (alerta de estoque baixo)
+Quantidade máxima (estoque ideal para evitar excesso)
+Localização física (prateleira, armário)
+Valores:
+Preço de custo (quanto você paga)
+Preço de venda (se for revenda)
+Margem de lucro (calculada automaticamente)
+Fornecedor:
+ID e nome do fornecedor principal
+Possibilidade de ter múltiplos fornecedores
+Rastreabilidade:
+Número do lote
+Data de fabricação
+Data de validade
+Flags para controlar se deve rastrear lote/validade
+Metadados:
+Status ativo/inativo
+Data de criação
+Data da última atualização
+Observações gerais
+
+Categorias de Produtos
+Sistema hierárquico de categorias:
+Estrutura:
+ID único
+Nome da categoria
+Cor para identificação visual (hex code)
+Ícone representativo (opcional)
+Categoria pai (para criar subcategorias)
+Descrição
+Exemplos de Categorias:
+💅 Manicure/Pedicure
+Esmaltes
+Removedores
+Alicates e ferramentas
+💇 Cabelo
+Tinturas
+Shampoos
+Condicionadores
+Produtos finalizadores
+🧴 Consumíveis
+Algodão
+Papel toalha
+Luvas
+🛍️ Revenda
+Produtos para levar
+
+Fornecedores
+Dados Cadastrais:
+Nome fantasia
+Razão social
+CNPJ
+Contato:
+Telefone principal
+WhatsApp
+E-mail
+Nome do responsável/contato
+Endereço completo:
+Rua, número, complemento
+Bairro, cidade, estado, CEP
+Informações Comerciais:
+Prazo de entrega (em dias)
+Condições de pagamento preferidas
+Observações sobre negociações
+Status ativo/inativo
+
+Movimentações de Estoque
+Cada vez que há entrada ou saída de produtos, registrar:
+Tipos de Movimentação:
+Entrada: compra de produtos, devolução de cliente
+Saída: venda, uso em serviço
+Ajuste: correção manual (inventário)
+Transferência: mudança de localização
+Dados Registrados:
+Produto movimentado
+Tipo de movimentação
+Quantidade movimentada
+Quantidade anterior (antes da movimentação)
+Quantidade nova (depois da movimentação)
+Valor unitário (para compras e vendas)
+Valor total da movimentação
+Origem:
+De onde veio essa movimentação (compra, serviço, venda)
+ID de referência (ID do agendamento, da compra, etc)
+Data e hora da movimentação
+Rastreabilidade:
+Número do lote (se aplicável)
+Data de validade (se aplicável)
+Localização origem e destino (para transferências)
+Responsabilidade:
+Usuário que fez a movimentação
+Justificativa (principalmente para ajustes)
+Observações adicionais
+
+Vinculação Serviço × Produto
+Para cada serviço oferecido, definir quais produtos são necessários:
+Configuração:
+Serviço (ex: Manicure com Gel)
+Produto usado (ex: Acetona)
+Quantidade consumida por atendimento (ex: 50ml)
+Se é obrigatório ou opcional
+Se deve dar baixa automática no estoque
+Funcionalidade: Quando um serviço é realizado, o sistema automaticamente:
+Verifica se há produtos vinculados
+Confere se há estoque suficiente
+Dá baixa automática na quantidade configurada
+Registra a movimentação com origem "uso_servico"
+Alerta se estoque ficar abaixo do mínimo
+
+1.2 TELAS E FUNCIONALIDADES
+Dashboard de Estoque
+Visão Geral com Cards:
+Card 1 - Total em Estoque:
+Valor total do estoque (soma de todos produtos × preço custo)
+Quantidade total de itens diferentes
+Indicador de variação vs mês anterior
+Card 2 - Estoque Baixo (VERMELHO):
+Quantidade de produtos abaixo do mínimo
+Badge vermelho piscante
+Link direto para lista desses produtos
+Botão "Gerar Pedido de Compra"
+Card 3 - Produtos Vencendo (AMARELO):
+Quantidade de produtos próximos da validade (30 dias)
+Subdivisão: vencendo em 7 dias, 15 dias, 30 dias
+Link para relatório de validade
+Card 4 - Compras Pendentes (AZUL):
+Quantidade de pedidos de compra em andamento
+Status: aguardando entrega, em trânsito
+Valor total pendente
+Seção de Alertas Críticos: Área destacada mostrando ações necessárias:
+🚨 Ruptura Total: Produtos com quantidade zero (lista com botão "Comprar Agora")
+⚠️ Estoque Baixo: Lista dos 10 produtos mais críticos
+📅 Validade Vencida: Produtos que já passaram da validade (remover/descartar)
+🔔 Ação Sugerida: Notificações inteligentes (ex: "3 produtos precisam ser pedidos esta semana")
+Gráfico de Movimentações: Gráfico de linhas mostrando últimos 30 dias:
+Linha verde: Entradas (compras)
+Linha vermelha: Saídas (vendas + uso em serviços)
+Linha azul: Saldo (diferença acumulada)
+Top 5 Produtos Mais Usados: Ranking dos produtos com maior consumo no mês:
+Posição (#1, #2, #3...)
+Nome do produto
+Quantidade usada no período
+Quantidade atual em estoque
+Status visual (verde se OK, amarelo se baixo, vermelho se crítico)
+Últimas Movimentações: Feed em tempo real mostrando:
+Ícone do tipo (↓ entrada verde, ↑ saída vermelha)
+Nome do produto
+Quantidade movimentada
+Usuário responsável
+Data/hora
+Origem (compra, serviço #123, venda, etc)
+Atalhos Rápidos: Botões grandes para ações frequentes:
+📦 Cadastrar Novo Produto
+🛒 Registrar Compra
+📋 Dar Entrada/Saída Manual
+📊 Fazer Inventário
+📈 Ver Relatórios
+
+Lista de Produtos
+Barra de Ferramentas Superior:
+Botão "+ Novo Produto" (destaque)
+Campo de busca (por nome, código, categoria)
+Filtros dropdown:
+Categoria
+Status (ativo/inativo)
+Tipo (revenda/uso interno/ambos)
+Situação de estoque (todos/OK/baixo/ruptura)
+Botão "Importar via Excel"
+Botão "Exportar para Excel"
+Visualização: Duas opções de exibição (toggle):
+Modo Grid (Cards):
+Cards visuais com foto do produto
+Nome, categoria, estoque atual
+Badge colorido de status
+Preço de venda (se revenda)
+Hover mostra ações rápidas
+Modo Lista (Tabela):
+Colunas:
+Foto (miniatura)
+Código SKU
+Nome do Produto
+Categoria
+Tipo (badge)
+Unidade
+Estoque Atual (com barra de progresso comparado ao mínimo)
+Preço Custo
+Preço Venda
+Margem %
+Localização
+Status
+Ações (editar, histórico, dar entrada/saída)
+Indicadores Visuais:
+Linha vermelha se estoque < mínimo
+Linha amarela se estoque < 150% do mínimo
+Ícone ⚠️ se próximo da validade
+Ícone 🔴 se validade vencida
+Ações em Massa:
+Checkbox para selecionar múltiplos produtos
+Botões: "Atualizar Preços", "Desativar", "Mover para Categoria", "Imprimir Etiquetas"
+
+Cadastro/Edição de Produto
+Formulário em Abas:
+Aba 1 - Informações Básicas:
+Upload de foto (arrastar e soltar)
+Código SKU (gerado automaticamente ou manual)
+Nome do produto (obrigatório)
+Descrição (rich text editor simples)
+Categoria (dropdown com busca)
+Tipo (radio buttons: revenda/uso interno/ambos)
+Status (toggle ativo/inativo)
+Aba 2 - Estoque:
+Unidade de medida (dropdown)
+Quantidade atual (input numérico)
+Quantidade mínima (com helper text: "sistema alertará quando atingir")
+Quantidade máxima/ideal (opcional)
+Localização física (input de texto livre ou dropdown de locais cadastrados)
+Checkboxes:
+☐ Controlar por lote
+☐ Controlar validade
+Aba 3 - Valores:
+Preço de custo (R$)
+Markup desejado (%)
+Preço de venda (calculado automaticamente ou manual)
+Margem de lucro (%) - campo somente leitura, calculado
+Histórico de preços (tabela mostrando alterações anteriores)
+Aba 4 - Fornecedor:
+Fornecedor principal (dropdown ou "+ Cadastrar Novo")
+Fornecedores alternativos (lista múltipla)
+Código do produto no fornecedor
+Quantidade mínima de pedido
+Tempo de entrega estimado (dias)
+Aba 5 - Rastreabilidade: (Visível apenas se checkboxes estiverem marcadas)
+Lote atual
+Data de fabricação
+Data de validade
+Observações
+Botões de Ação:
+Cancelar
+Salvar como Rascunho
+Salvar e Novo
+Salvar
+
+Página de Detalhes do Produto
+Header:
+Foto grande do produto
+Nome e categoria
+Badges: tipo, status, alertas
+Botões: Editar, Duplicar, Desativar, Imprimir Etiqueta
+Seção de Estoque Atual: Card grande mostrando:
+Quantidade atual com indicador visual (gráfico de gauge)
+Comparação com mínimo e máximo
+Última movimentação (data, tipo, quantidade)
+Botões rápidos: "+ Entrada" e "- Saída"
+Seção de Valores:
+Preço de custo atual
+Preço de venda
+Margem de lucro
+Valor total em estoque (quantidade × custo)
+Gráfico de Consumo: Gráfico de colunas mostrando consumo nos últimos 6 meses:
+Identificar tendência (crescente, estável, decrescente)
+Média móvel de consumo
+Histórico de Movimentações: Tabela completa e filtrada:
+Colunas:
+Data/Hora
+Tipo (entrada/saída/ajuste com ícone)
+Quantidade movimentada
+Saldo após movimentação
+Origem (compra #001, serviço #123, ajuste manual)
+Usuário responsável
+Observações
+Filtros:
+Período (data inicial e final)
+Tipo de movimentação
+Usuário
+Exportação: CSV, Excel, PDF
+Locais Onde é Usado: Se for produto de uso interno, mostrar:
+Lista de serviços que utilizam este produto
+Quantidade consumida por serviço
+Projeção de consumo mensal baseado na demanda dos serviços
+Fornecedores: Lista de fornecedores que vendem este produto:
+Nome do fornecedor
+Último preço praticado
+Data da última compra
+Tempo médio de entrega
+Botão "Solicitar Cotação"
+
+Compras de Produtos
+Lista de Compras:
+Visualização em cards por status:
+Em Orçamento: Pedidos ainda não confirmados
+Dados: fornecedor, data, valor total
+Ações: Editar, Confirmar Pedido, Cancelar
+Pedido Confirmado: Aguardando entrega
+Previsão de entrega
+Status tracking (se disponível)
+Ações: Confirmar Recebimento, Cancelar
+Em Trânsito: A caminho do estabelecimento
+Data prevista de chegada
+Botão "Recebido"
+Recebido: Já entrada no estoque
+Data de recebimento
+Conferência realizada (sim/não)
+Ações: Ver Detalhes, Imprimir NF
+Cancelado: Histórico de pedidos cancelados
+Wizard de Nova Compra:
+Passo 1 - Fornecedor:
+Selecionar fornecedor (dropdown com busca)
+Ou "+ Cadastrar Novo Fornecedor" (modal rápido)
+Exibir dados de contato e condições comerciais
+Data da compra (padrão: hoje)
+Data prevista de entrega
+Passo 2 - Produtos: Interface de seleção de produtos:
+Busca/filtro de produtos
+Botão "+ Adicionar Produto"
+Tabela dinâmica de itens:
+Produto (dropdown com autocomplete)
+Quantidade
+Valor unitário (preenchido com último preço ou editar)
+Desconto (R$ ou %)
+Subtotal (calculado)
+Lote (se aplicável)
+Validade (se aplicável)
+Botão remover item
+Sugestões inteligentes:
+"5 produtos estão abaixo do mínimo, adicionar?" (botão rápido)
+"Baseado no consumo, você precisará de X unidades de Y"
+Passo 3 - Valores e Pagamento:
+Subtotal (soma dos itens)
+Desconto geral (R$ ou %)
+Valor do frete
+Outros custos (embalagem, taxa, etc)
+Valor Total (destacado)
+Forma de pagamento (dropdown)
+Condição de pagamento (ex: à vista, 30/60 dias)
+Observações
+Passo 4 - Revisão:
+Preview de todos os dados
+Botões:
+Voltar
+Salvar como Orçamento
+Confirmar Pedido
+Passo 5 - Anexos:
+Upload de nota fiscal (PDF/foto)
+Upload de boleto
+Outros documentos
+Após Confirmação:
+Gerar automaticamente uma conta a pagar no financeiro
+Vincular a conta ao pedido de compra
+Enviar notificação ao fornecedor (opcional, via email/WhatsApp)
+Recebimento de Mercadoria:
+Ao clicar "Confirmar Recebimento":
+Tela de Conferência:
+Lista de todos os itens do pedido
+Para cada item:
+Quantidade pedida
+Quantidade recebida (input para conferir)
+Checkbox "Conforme"
+Observações se houver divergência
+Validar lote e validade
+Divergências:
+Se quantidade recebida < pedida: registrar falta
+Se qualidade inferior: registrar observação
+Opções: Aceitar parcial, Recusar, Contatar fornecedor
+Após Conferência:
+Dar entrada automática no estoque
+Criar movimentações de entrada para cada produto
+Atualizar saldos
+Mudar status do pedido para "Recebido"
+Registrar data de recebimento
+
+Inventário (Contagem Física)
+Conceito: Periodicamente, fazer contagem física do estoque para verificar divergências entre o sistema e a realidade.
+Iniciar Novo Inventário:
+Configuração:
+Nome do inventário (ex: "Inventário Mensal - Novembro 2025")
+Data de início
+Responsável pela contagem
+Escopo:
+Todos os produtos
+Apenas uma categoria
+Apenas produtos abaixo do mínimo
+Produtos de alto valor (Curva A)
+Observações gerais
+Status: Em Andamento
+Tela de Contagem:
+Lista de Produtos: Para cada produto no escopo:
+Foto miniatura
+Nome do produto
+Código SKU
+Localização
+Quantidade no Sistema (o que deveria ter)
+Quantidade Contada (input numérico - a preencher)
+Status: Pendente | OK | Divergente
+Campo para observação (se divergente)
+Funcionalidades:
+Busca por código de barras (leitor ou digitação)
+Filtros: pendentes, divergentes, OK
+Ordenação por localização (facilita contagem física)
+Salvar parcialmente (continuar depois)
+Marcar produto como "não encontrado"
+Finalização:
+Ao terminar contagem:
+Resumo:
+Total de produtos contados
+Produtos OK (sem divergência)
+Produtos com divergência
+Produtos não encontrados
+Valor total das divergências
+Ações:
+Gerar relatório de divergências (PDF)
+Aprovar ajustes (criar movimentações do tipo "ajuste")
+Rejeitar (manter como está e investigar)
+Aprovação de Ajustes:
+Para cada divergência, o sistema cria uma movimentação de ajuste
+Justificativa obrigatória
+Atualiza quantidades no sistema
+Registra no histórico
+Após Finalização:
+Mudar status para "Concluído"
+Data de conclusão registrada
+Relatório arquivado
+Possibilidade de refazer contagem se necessário
+
+1.3 AUTOMAÇÕES E INTEGRAÇÕES
+Baixa Automática ao Finalizar Serviço
+Fluxo:
+Profissional finaliza atendimento no sistema
+Sistema verifica serviços realizados
+Para cada serviço, busca produtos vinculados (marcados como obrigatórios)
+Verifica se há estoque suficiente:
+Se SIM: prossegue
+Se NÃO: bloqueia finalização e alerta "Estoque insuficiente de [Produto X]"
+Cria movimentação de saída para cada produto
+Atualiza quantidades em estoque
+Verifica se ficou abaixo do mínimo:
+Se sim: cria alerta automático
+Envia notificação ao responsável por compras
+Registra custo dos produtos no agendamento (para cálculo de margem real)
+Exemplo Prático:
+Cliente faz "Manicure com Gel"
+Produtos vinculados:
+Acetona: 30ml
+Algodão: 5 unidades
+Lixa: 0,5 unidade
+Esmalte Gel: 2ml
+Sistema dá baixa automática de todos
+Se Acetona estava em 100ml, agora fica 70ml
+Se 70ml < mínimo de 80ml → Alerta vermelho
+Alertas Inteligentes
+Estoque Baixo:
+Verificação diária (job noturno)
+Envia email/notificação push para:
+Gerente
+Responsável por compras
+Mensagem: "12 produtos estão abaixo do mínimo. Clique para ver lista e gerar pedido."
+Validade Próxima:
+Verificação diária
+Alertas em 3 níveis:
+30 dias: amarelo (atenção)
+15 dias: laranja (usar com prioridade)
+7 dias: vermelho (urgente - usar ou descartar)
+Sugestão: "Criar promoção com produto X que vence em 10 dias"
+Ruptura Total:
+Alerta imediato quando quantidade chega a zero
+Bloquear agendamento de serviços que dependem do produto
+Mensagem: "Não é possível agendar [Serviço X] pois falta [Produto Y]"
+Previsão de Ruptura: Sistema calcula baseado em:
+Consumo médio diário
+Estoque atual
+Previsão: "Com base no consumo, você ficará sem Acetona em 5 dias"
+Integração com Financeiro
+Ao Registrar Compra:
+Criar automaticamente uma "Conta a Pagar"
+Categoria: "Compra de Produtos"
+Valor: total da compra
+Vencimento: conforme condição de pagamento
+Vincular compra à conta (referência cruzada)
+Ao Dar Entrada no Estoque:
+Registrar no fluxo de caixa (se pago à vista)
+Tipo: Saída
+Categoria: Estoque
+Descrição: "Compra #001 - Fornecedor X"
+Cálculo de Custo Real dos Serviços:
+Ao finalizar agendamento, somar:
+Custo dos produtos utilizados
+Comissão do profissional
+Lucro real = Valor cobrado - Custos
+Alimenta o DRE com dados reais
+
+1.4 RELATÓRIOS DE ESTOQUE
+Relatório: Curva ABC
+Conceito: Classificar produtos por importância:
+Classe A: 20% dos produtos representam 80% do valor
+Classe B: 30% dos produtos representam 15% do valor
+Classe C: 50% dos produtos representam 5% do valor
+Cálculo:
+Calcular valor de giro de cada produto (quantidade usada × custo)
+Ordenar do maior para o menor
+Calcular participação % e participação acumulada %
+Classificar conforme faixas
+Visualização:
+Cards Resumo:
+Classe A: quantidade de produtos, valor total, % do inventário
+Classe B: idem
+Classe C: idem
+Gráfico de Pareto:
+Barras azuis: participação individual de cada produto
+Linha vermelha: participação acumulada
+Linhas de referência em 80% e 95%
+Tabela Detalhada: Colunas: Ranking | Classe | Produto | Qtd Usada | Valor Giro | % Individual | % Acumulado
+Recomendações Automáticas:
+Classe A: "Manter estoque alto, revisar diariamente, negociar melhores preços"
+Classe B: "Revisão semanal, estoque moderado"
+Classe C: "Avaliar descontinuação, reduzir estoque, revisar mensalmente"
+Filtros:
+Período (últimos 30/90/365 dias)
+Categoria de produtos
+
+Relatório: Giro de Estoque
+Conceito: Medir quantas vezes o estoque "girou" no período. Fórmula: Giro = Consumo do Período / Estoque Médio
+Métricas:
+Giro alto (>6): excelente - produto de alta rotatividade
+Giro médio (3-6): bom - rotatividade adequada
+Giro baixo (<3): atenção - produto encalhado
+Visualização:
+Resumo por Classificação: Cards mostrando quantos produtos em cada faixa:
+Excelente (giro ≥6)
+Bom (giro 4-6)
+Regular (giro 2-4)
+Baixo (giro <2)
+Sem giro (zero movimentações)
+Tabela: Colunas:
+Produto
+Consumo no período
+Estoque médio
+Giro (número de vezes)
+Dias em estoque (calculado: dias do período ÷ giro)
+Classificação (badge colorido)
+Estoque atual
+Ordenação: Do maior para o menor giro
+Insights:
+Produtos com melhor desempenho (top 5)
+Produtos com baixo giro (atenção - considerar desconto/descontinuação)
+Comparação com período anterior
+Gráficos:
+Gráfico de barras: giro por categoria
+Gráfico de evolução: como o giro mudou nos últimos 6 meses
+
+Relatório: Produtos Vencendo
+Propósito: Controlar validades e minimizar perdas.
+Cards de Alerta:
+Vencidos (vermelho): quantidade, valor total em perda
+Crítico ≤7 dias (laranja): usar urgentemente
+Atenção ≤30 dias (amarelo): monitorar
+Seção Vencidos: Área destacada em vermelho:
+Lista de produtos vencidos
+Lote, data de vencimento, estoque, valor
+Ações:
+Descartar: cria movimentação de saída (perda)
+Corrigir Data: se foi erro de cadastro
+Seção Críticos (≤7 dias): Grid de cards:
+Nome do produto, lote
+"Vence em X dias" (badge laranja)
+Estoque disponível
+Botões:
+"Usar com Prioridade": marca no sistema para consumir primeiro
+"Promover Desconto": sugestão de desconto para venda rápida
+Tabela Completa: Todos os produtos com controle de validade:
+Colunas:
+Status (badge colorido)
+Produto
+Lote
+Fabricação
+Validade
+Dias restantes (positivo ou negativo)
+Estoque
+Valor total
+Filtros:
+Status (vencido/crítico/atenção/OK)
+Categoria
+Período de vencimento
+Resumo Financeiro: Cards mostrando:
+Valor em produtos vencidos (perda total)
+Valor em risco (≤7 dias)
+Valor para monitorar (≤30 dias)
+Ações Sugeridas:
+Criar campanha de descontos
+Priorizar uso em serviços
+Revisar quantidade de pedidos futuros
+
