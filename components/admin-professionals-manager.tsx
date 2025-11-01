@@ -23,22 +23,49 @@ export function AdminProfessionalsManager({ professionals }: AdminProfessionalsM
   const handleDelete = async (id: string) => {
     if (!confirm("Tem certeza que deseja excluir este profissional?")) return
 
-    const { error } = await supabase.from("professionals").delete().eq("id", id)
+    try {
+      // Remover appointments vinculados primeiro (caso FK não tenha CASCADE)
+      const { error: appointmentsErr } = await supabase.from("appointments").delete().eq("professional_id", id)
+      if (appointmentsErr) {
+        console.error("Erro ao remover appointments:", appointmentsErr)
+        toast({ title: "Erro", description: "Falha ao remover agendamentos do profissional", variant: "destructive" })
+        return
+      }
 
-    if (error) {
+      // Remover horários vinculados (schedules)
+      const { error: schedErr } = await supabase.from("schedules").delete().eq("professional_id", id)
+      if (schedErr) {
+        console.error("Erro ao remover schedules:", schedErr)
+        toast({ title: "Erro", description: "Falha ao remover horários do profissional", variant: "destructive" })
+        return
+      }
+
+      // Excluir profissional (services possuem CASCADE)
+      const { error } = await supabase.from("professionals").delete().eq("id", id)
+
+      if (error) {
+        console.error("Erro ao excluir profissional:", error)
+        toast({
+          title: "Erro",
+          description: `Erro ao excluir profissional: ${error.message}`,
+          variant: "destructive",
+        })
+        return
+      }
+
+      toast({
+        title: "Sucesso",
+        description: "Profissional excluído com sucesso",
+      })
+      router.refresh()
+    } catch (err) {
+      console.error("Erro inesperado:", err)
       toast({
         title: "Erro",
-        description: "Erro ao excluir profissional",
+        description: "Erro inesperado ao excluir profissional",
         variant: "destructive",
       })
-      return
     }
-
-    toast({
-      title: "Sucesso",
-      description: "Profissional excluído com sucesso",
-    })
-    router.refresh()
   }
 
   const toggleActive = async (id: string, currentStatus: boolean) => {
