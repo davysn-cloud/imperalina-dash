@@ -123,6 +123,17 @@ export async function PUT(request: NextRequest) {
       console.error("Erro ao atualizar conta a pagar:", error)
       return NextResponse.json({ error: "Erro ao atualizar" }, { status: 500 })
     }
+
+    // Se a conta a pagar foi marcada como PAGO, refletir status na comissão vinculada
+    if (rest.status === 'PAGO') {
+      const { error: errCom } = await supabase
+        .from("comissoes")
+        .update({ status: 'PAGO' })
+        .eq("conta_pagar_id", id)
+      if (errCom) {
+        console.warn("Falha ao atualizar status da comissão para PAGO:", errCom)
+      }
+    }
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("Erro na API contas a pagar (PUT):", error)

@@ -5,6 +5,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai"
 const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY
 
 export const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null
+export const AI_AVAILABLE = !!apiKey
 
 export const AI_MODEL = "gemini-1.5-pro"
 

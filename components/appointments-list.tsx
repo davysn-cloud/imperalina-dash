@@ -45,6 +45,7 @@ interface AppointmentsListProps {
   appointments: Appointment[]
   userRole: UserRole
   statusFilter?: "PENDING" | "CONFIRMED" | "COMPLETED"
+  onChangeFilter?: (value: "PENDING" | "CONFIRMED" | "COMPLETED") => void
 }
 
 const STATUS_LABELS = {
@@ -61,7 +62,7 @@ const STATUS_VARIANTS: Record<string, "default" | "secondary" | "destructive" | 
   COMPLETED: "outline",
 }
 
-export function AppointmentsList({ appointments, userRole, statusFilter }: AppointmentsListProps) {
+export function AppointmentsList({ appointments, userRole, statusFilter, onChangeFilter }: AppointmentsListProps) {
   const router = useRouter()
   const supabase = getSupabaseBrowserClient()
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
@@ -249,7 +250,12 @@ export function AppointmentsList({ appointments, userRole, statusFilter }: Appoi
                 appointmentId={appointment.id}
                 clientName={appointment.client.name}
                 currentUserId={currentUserId || ""}
-                onSuccess={() => router.refresh()}
+                onSuccess={() => {
+                  toast.success("Atendimento concluído com sucesso")
+                  // Alterna para a aba de Concluídos para que o usuário veja o status atualizado
+                  onChangeFilter?.("COMPLETED")
+                  router.refresh()
+                }}
               />
             </CardContent>
           </Card>

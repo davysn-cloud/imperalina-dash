@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useForm, useFieldArray, SubmitHandler } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Calendar, MessageSquare, Star, Package, Plus, X } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 
 const followUpSchema = z.object({
   serviceReason: z.string().optional(),
@@ -53,6 +54,8 @@ export function FollowUpModal({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [satisfaction, setSatisfaction] = useState(0)
   const { toast } = useToast()
+  const supabase = getSupabaseBrowserClient()
+  const [produtos, setProdutos] = useState<{ id: string; nome: string }[]>([])
 
   // ... existing code ...
   const { register, handleSubmit, control, setValue } = useForm<FollowUpFormInput>({
@@ -73,6 +76,20 @@ export function FollowUpModal({
     control,
     name: "conversationTopics",
   } as any)
+
+  // Carregar produtos do estoque para o seletor
+  useEffect(() => {
+    const loadProdutos = async () => {
+      const { data, error } = await supabase
+        .from("produtos")
+        .select("id, nome")
+        .order("nome", { ascending: true })
+      if (!error && data) {
+        setProdutos(data as any)
+      }
+    }
+    loadProdutos()
+  }, [supabase])
 
   const {
     fields: followUpFields,
@@ -332,7 +349,18 @@ export function FollowUpModal({
               <div className="space-y-2">
                 {productsFields.map((field, index) => (
                   <div key={field.id} className="flex gap-2">
-                    <Input {...register(`productsUsed.${index}` as const)} placeholder="Nome do produto..." />
+                    <Select onValueChange={(value) => setValue(`productsUsed.${index}` as const, value)}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Selecionar produto do estoque" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {produtos.map((p) => (
+                          <SelectItem key={p.id} value={p.nome}>
+                            {p.nome}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     {productsFields.length > 1 && (
                       <Button type="button" variant="ghost" size="icon" onClick={() => removeProduct(index)}>
                         <X className="w-4 h-4" />
@@ -340,7 +368,7 @@ export function FollowUpModal({
                     )}
                   </div>
                 ))}
-                <Button type="button" variant="outline" size="sm" onClick={() => appendProduct("")}>
+                <Button type="button" variant="outline" size="sm" onClick={() => appendProduct("")}> 
                   <Plus className="w-4 h-4 mr-2" />
                   Adicionar produto
                 </Button>

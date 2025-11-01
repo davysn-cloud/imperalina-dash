@@ -1,0 +1,352 @@
+# 📋 PROMPT RESUMIDO - Sistema de Orçamentos e Controle Financeiro
+
+## CONTEXTO
+Sistema de agendamentos de salão de beleza em Next.js 14+ (App Router) precisa adicionar:
+- Sistema de orçamentos 
+- Controle financeiro completo (contas a receber/pagar, fluxo de caixa, DRE, comissões)
+
+---
+
+## 1. TIPOS TYPESCRIPT (types/orcamento.ts + types/financeiro.ts)
+
+```typescript
+interface Template {
+  id: string
+  nome: string
+  config: {
+    cor_primaria: string
+    cor_secundaria: string
+    layout: 'moderno'|'minimalista'|'elegante'
+    exibir_logo: boolean
+    logo_url?: string
+    dados_empresa: { nome, endereco, telefone, email, cnpj, site }
+    secoes: { observacoes, termos_condicoes, forma_pagamento, validade }
+  }
+  conteudo_padrao: { observacoes, termos_condicoes, mensagem_agradecimento }
+}
+
+interface Orcamento {
+  id: string
+  numero: string // ORC-2025-001
+  template_id: string
+  cliente: { id, nome, email, telefone }
+  itens: [{ servico_id, servico_nome, quantidade, valor_unitario, desconto, subtotal }]
+  data_emissao: Date
+  data_validade: Date
+  subtotal: number
+  desconto: number
+  valor_total: number
+  status: 'pendente'|'aprovado'|'rejeitado'|'expirado'
+}
+
+interface ContaReceber {
+  id: string
+  numero: string // CR-2025-001
+  cliente_id: string
+  agendamento_id?: string
+  orcamento_id?: string
+  valor_original: number
+  data_vencimento: Date
+  data_pagamento?: Date
+  status: 'pendente'|'pago'|'atrasado'
+  forma_pagamento: string
+}
+
+interface ContaPagar {
+  id: string
+  categoria: 'comissao'|'aluguel'|'produto'|'salario'|'outros'
+  profissional_id?: string
+  valor_original: number
+  data_vencimento: Date
+  status: 'pendente'|'pago'
+  recorrente: boolean
+}
+
+interface Comissao {
+  id: string
+  profissional_id: string
+  periodo: { inicio: Date, fim: Date }
+  atendimentos: [{ agendamento_id, valor_servico, valor_comissao }]
+  total_comissao: number
+  bonificacoes: number
+  valor_final: number
+  status: 'calculado'|'aprovado'|'pago'
+}
+```
+
+---
+
+## 2. ESTRUTURA DE PASTAS
+
+```
+app/
+├── orcamentos/
+│   ├── page.tsx                    # Lista + filtros
+│   ├── novo/page.tsx               # Wizard 3 steps (template→dados→preview)
+│   ├── [id]/page.tsx               # Ver orçamento
+│   └── templates/
+│       ├── page.tsx                # Grid de templates
+│       └── [id]/page.tsx           # Editor visual split-screen
+├── financeiro/
+│   ├── page.tsx                    # Dashboard (cards + gráfico fluxo)
+│   ├── contas-receber/page.tsx     # Lista com status coloridos
+│   ├── contas-pagar/page.tsx       # Lista + despesas recorrentes
+│   ├── fluxo-caixa/page.tsx        # Gráfico linha + extrato
+│   ├── dre/page.tsx                # Relatório DRE formatado
+│   └── comissoes/page.tsx          # Config + cálculo automático
+components/
+├── orcamentos/
+│   ├── TemplateSelector.tsx        # Grid clicável
+│   ├── templates/
+│   │   ├── ModernoTemplate.tsx     # Header gradiente + tabela zebrada
+│   │   ├── MinimalistaTemplate.tsx # Clean, borders finas
+│   │   └── EleganteTemplate.tsx    # Corporativo
+│   └── ModalEnvio.tsx              # WhatsApp/Email/PDF
+├── financeiro/
+│   ├── ModalReceber.tsx            # Registrar recebimento
+│   ├── FluxoCaixaChart.tsx         # Recharts: 3 linhas (entrada/saída/saldo)
+│   └── DRERelatorio.tsx            # Formatação com quebras
+```
+
+---
+
+## 3. FUNCIONALIDADES PRINCIPAIS
+
+### A) ORÇAMENTOS
+
+**Wizard Criação (app/orcamentos/novo/page.tsx)**
+- **Step 1**: TemplateSelector (grid com preview miniatura)
+- **Step 2**: Formulário
+  - Select cliente
+  - Tabela itens dinâmica: [+Adicionar] Select Serviço | Qtd | Valor | Desconto | Subtotal calculado | [Remover]
+  - Totalizadores tempo real: Subtotal → Desconto % → TOTAL
+  - Observações + Forma Pagamento + Data Validade
+- **Step 3**: Preview do template renderizado + botões [Salvar Rascunho] [Salvar e Enviar]
+
+**Editor Template (app/orcamentos/templates/[id]/page.tsx)**
+- **Painel Esquerdo (360px fixo)**:
+  - Inputs: Nome, Descrição
+  - Color pickers: cor_primaria, cor_secundaria
+  - Selects: layout, fontes, espaçamento
+  - Checkboxes: exibir_logo, secoes ativas
+  - Textareas: dados_empresa, conteudo_padrao
+- **Painel Direito (flex-1)**: Preview ao vivo com dados mock + botão [Exportar PDF Teste]
+
+**Templates React**
+- ModernoTemplate: Header gradiente, tabela bg-alternado, total com background cor_primaria
+- MinimalistaTemplate: Borders finas, font-light, uppercase labels, clean
+- EleganteTemplate: Corporativo, serifas, sombras suaves
+
+### B) FINANCEIRO
+
+**Dashboard (app/financeiro/page.tsx)**
+- 4 Cards: Saldo Atual | A Receber | A Pagar | Atrasadas
+- Gráfico Recharts: LineChart com 3 linhas (verde/vermelho/azul)
+- Seção alertas: 🔴 Vencidas | 🟡 Hoje | 🟢 Próximas
+- Atalhos: [Registrar Recebimento] [Registrar Pagamento] [Ver DRE]
+
+**Contas a Receber (app/financeiro/contas-receber/page.tsx)**
+- Cards resumo: Pendente | Recebido | Atrasado
+- Lista organizada por status (accordions coloridos)
+- Cada conta: Cliente | Valor | Vencimento | [Cobrar WhatsApp] [Receber] [Negociar]
+- Modal Receber: Inputs data, forma_pagamento, descontos, acréscimos → [Confirmar]
+
+**Fluxo de Caixa (app/financeiro/fluxo-caixa/page.tsx)**
+- Seletor período: Diário|Semanal|Mensal|Anual
+- Gráfico grande: 3 linhas (entradas/saídas/saldo acumulado)
+- Cards: Total Entradas | Saídas | Saldo | Variação %
+- Extrato tabela: Data | Tipo | Categoria | Entrada | Saída | Saldo
+- Botões: [Exportar Excel] [Exportar PDF]
+
+**DRE (app/financeiro/dre/page.tsx)**
+- Select Mês/Ano
+- Relatório formatado:
+  ```
+  RECEITA BRUTA          R$ XX
+  (-) Descontos          R$ XX
+  = RECEITA LÍQUIDA      R$ XX
+  (-) CUSTOS SERVIÇOS    R$ XX
+  = LUCRO BRUTO          R$ XX (Margem: XX%)
+  (-) DESPESAS OPERAC.   R$ XX
+  = RESULTADO FINAL      R$ XX (Margem: XX%)
+  ```
+- Gráficos: Pizza (custos por categoria) + Barras (evolução 6 meses)
+- Tabela comparativa mensal
+
+**Comissões (app/financeiro/comissoes/page.tsx)**
+- Aba 1 - Configuração: Tabela profissionais com [Configurar]
+  - Modal config: Tipo (percentual|fixo|hibrido), meta_minima, bonus, dia_pagamento
+- Aba 2 - Comissões do Mês:
+  - Cards: Profissional | Atendimentos | Faturamento | Comissão | Bônus | TOTAL | Status
+  - Botões: [Ver Detalhes] [Aprovar] [Gerar Pagamento]
+  - "Gerar Pagamento" cria ContaPagar automaticamente
+
+---
+
+## 4. AUTOMAÇÕES E TRIGGERS
+
+```typescript
+// TRIGGER: Ao finalizar agendamento
+async function aoFinalizarAgendamento(agendamento) {
+  // Criar ContaReceber automaticamente
+  await criarContaReceber({
+    agendamento_id: agendamento.id,
+    valor_original: agendamento.valor_total,
+    status: agendamento.pago_no_ato ? 'pago' : 'pendente'
+  })
+  
+  // Se pago, registrar fluxo caixa
+  if (agendamento.pago_no_ato) {
+    await registrarFluxoCaixa({ tipo: 'entrada', valor: agendamento.valor_total })
+  }
+}
+
+// JOB DIÁRIO (9h): Verificar vencimentos
+async function jobVencimentos() {
+  // Contas vencendo hoje → enviar lembretes WhatsApp
+  // Contas vencidas → atualizar status para 'atrasado'
+  // Orçamentos expirados → atualizar status
+}
+
+// JOB MENSAL (dia 5, 6h): Calcular comissões
+async function calcularComissoesMensais() {
+  for (profissional of profissionais) {
+    const atendimentos = await buscarAtendimentos(profissional, mesAnterior)
+    
+    let comissao = {
+      total_comissao: atendimentos.reduce((acc, a) => 
+        acc + (a.valor * config.percentual / 100), 0
+      )
+    }
+    
+    // Aplicar bônus se ultrapassou meta
+    if (config.tipo === 'hibrido' && total_faturado > meta_minima) {
+      comissao.bonificacoes = (total_faturado - meta_minima) * (bonus / 100)
+    }
+    
+    await salvarComissao(comissao)
+    await notificarProfissional(profissional)
+  }
+}
+```
+
+---
+
+## 5. API ROUTES ESSENCIAIS
+
+```typescript
+// Orçamentos
+GET/POST    /api/orcamentos
+GET/PUT/DEL /api/orcamentos/[id]
+POST        /api/orcamentos/[id]/aprovar
+POST        /api/orcamentos/[id]/converter-agendamento
+GET         /api/orcamentos/proximo-numero
+POST        /api/orcamentos/gerar-pdf         // @react-pdf/renderer
+POST        /api/orcamentos/enviar            // WhatsApp API / Nodemailer
+
+// Templates
+GET/POST    /api/orcamentos/templates
+GET/PUT/DEL /api/orcamentos/templates/[id]
+
+// Financeiro
+GET/POST    /api/financeiro/contas-receber
+POST        /api/financeiro/contas-receber/[id]/receber
+GET/POST    /api/financeiro/contas-pagar
+POST        /api/financeiro/contas-pagar/[id]/pagar
+GET         /api/financeiro/fluxo-caixa       // Query: data_inicio, data_fim
+GET         /api/financeiro/dre               // Query: mes, ano
+GET/POST    /api/financeiro/comissoes
+POST        /api/financeiro/comissoes/calcular-mensal
+```
+
+---
+
+## 6. CÁLCULOS IMPORTANTES
+
+```typescript
+// DRE
+const receitaLiquida = receitaBruta - deducoes
+const lucroBruto = receitaLiquida - (comissoes + produtos)
+const margemBruta = (lucroBruto / receitaLiquida) * 100
+const resultadoOperacional = lucroBruto - despesasOperacionais
+const margemLiquida = (resultadoOperacional / receitaLiquida) * 100
+
+// Fluxo de Caixa
+const fluxoPorData = {}
+entradas.forEach(c => fluxo[data].entradas += c.valor)
+saidas.forEach(c => fluxo[data].saidas += c.valor)
+let saldoAcumulado = 0
+Object.keys(fluxo).sort().forEach(data => {
+  saldoAcumulado += (fluxo[data].entradas - fluxo[data].saidas)
+  fluxo[data].saldo = saldoAcumulado
+})
+
+// Comissão Híbrida
+const comissaoBase = faturamento * (percentual_base / 100)
+const bonus = faturamento > meta_minima 
+  ? (faturamento - meta_minima) * (bonus_percentual / 100) 
+  : 0
+const total = comissaoBase + bonus
+```
+
+---
+
+## 7. CHECKLIST DE IMPLEMENTAÇÃO
+
+**Fase 1 - Orçamentos (Semana 1-2)**
+- [ ] Criar tipos TypeScript
+- [ ] 1 template React (Minimalista)
+- [ ] Wizard de criação (3 steps com progress)
+- [ ] Editor visual de template (split-screen)
+- [ ] Lista de orçamentos com filtros
+- [ ] Modal envio (WhatsApp/Email/PDF)
+- [ ] API routes CRUD orçamentos + templates
+- [ ] Geração PDF (@react-pdf/renderer)
+
+**Fase 2 - Financeiro (Semana 3-4)**
+- [ ] Dashboard financeiro com cards + gráfico
+- [ ] Contas a Receber (lista + modal registrar)
+- [ ] Contas a Pagar (lista + despesas recorrentes)
+- [ ] Fluxo de Caixa (gráfico + extrato)
+- [ ] DRE mensal (relatório + comparativo)
+- [ ] Comissões (config + cálculo automático)
+- [ ] Triggers: agendamento→conta_receber
+- [ ] Jobs: verificar vencimentos + calcular comissões
+- [ ] API routes financeiro completo
+
+**Fase 3 - Integrações (Semana 5)**
+- [ ] WhatsApp Business API
+- [ ] Email service (Nodemailer/SendGrid)
+- [ ] Exportação Excel/PDF
+- [ ] Notificações push/email
+- [ ] Testes e ajustes
+
+---
+
+## 8. BIBLIOTECAS NECESSÁRIAS
+
+```bash
+npm install @react-pdf/renderer
+npm install recharts
+npm install date-fns
+npm install react-colorful
+npm install nodemailer
+npm install xlsx # para exportar Excel
+```
+
+---
+
+## 9. OBSERVAÇÕES IMPORTANTES
+
+✅ **Usar português (PT-BR)** em toda interface
+✅ **Formato monetário**: `toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })`
+✅ **Formato data**: `format(date, 'dd/MM/yyyy', { locale: ptBR })`
+✅ **Cores status**: 🔴 Atrasado | 🟡 Hoje | 🟢 Futuro | ✅ Pago
+✅ **Responsivo**: Mobile-first com Tailwind
+✅ **Loading states**: Skeleton ou spinners
+✅ **Validações**: Zod nos formulários
+✅ **Feedback**: Toast notifications (react-hot-toast)
+
+---
+
+**PROMPT PARA IA**: "Com base nesta especificação resumida, implemente o sistema completo de Orçamentos e Controle Financeiro em Next.js 14+. Crie todos os arquivos mencionados (types, pages, components, API routes) seguindo as estruturas e funcionalidades descritas. Use TypeScript, Tailwind CSS, e as bibliotecas indicadas. Priorize código limpo, componentizado e reutilizável."

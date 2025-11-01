@@ -13,6 +13,15 @@ interface MinimalistaTemplateProps {
 export function MinimalistaTemplate({ orcamento, template, preview = false }: MinimalistaTemplateProps) {
   const corPrimaria = template?.cor_primaria || "#000000"
   const corSecundaria = template?.cor_secundaria || "#666666"
+  const dadosEmpresa = (template?.dados_empresa || "").trim()
+  const remetenteLinhas = dadosEmpresa
+    ? dadosEmpresa.split(/\r?\n/).map((s) => s.trim()).filter(Boolean)
+    : [
+        "Imperalina Estética",
+        "contato@imperalina.com",
+        "(11) 99999-9999",
+        "São Paulo, SP",
+      ]
 
   return (
     <div className={`bg-white ${preview ? 'p-8' : 'p-12'} font-light text-gray-900 min-h-full`}>
@@ -45,10 +54,9 @@ export function MinimalistaTemplate({ orcamento, template, preview = false }: Mi
             DE
           </h3>
           <div className="space-y-1 text-sm">
-            <div className="font-medium">Imperalina Estética</div>
-            <div>contato@imperalina.com</div>
-            <div>(11) 99999-9999</div>
-            <div>São Paulo, SP</div>
+            {remetenteLinhas.map((linha, idx) => (
+              <div key={idx} className={idx === 0 ? "font-medium" : undefined}>{linha}</div>
+            ))}
           </div>
         </div>
         <div>

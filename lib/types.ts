@@ -22,6 +22,7 @@ export interface Professional {
   is_active: boolean
   can_manage_schedule: boolean
   can_view_all_appointments: boolean
+  allowed_tabs?: string[]
   created_at: string
   updated_at: string
   user?: User

@@ -5,10 +5,13 @@ import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { getSupabaseBrowserClient } from "@/lib/supabase/client"
+import { registerUser } from "@/app/actions/auth"
+import { ensureBucket } from "@/app/actions/storage"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { toast } from "sonner"
 
 interface ClientFormProps {
@@ -32,6 +35,19 @@ export function ClientForm({ client }: ClientFormProps) {
     password: "",
   })
 
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setAvatarFile(file)
+      const reader = new FileReader()
+      reader.onload = () => setAvatarPreview(reader.result as string)
+      reader.readAsDataURL(file)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
@@ -50,32 +66,52 @@ export function ClientForm({ client }: ClientFormProps) {
 
         if (error) throw error
 
+        // Upload avatar se houver arquivo
+        if (avatarFile) {
+          const ensured = await ensureBucket("avatars")
+          if ((ensured as any)?.error) throw new Error((ensured as any).error)
+          const ext = avatarFile.name.split(".").pop()?.toLowerCase() || "jpg"
+          const filePath = `users/${client.id}-${Date.now()}.${ext}`
+          const { data: upData, error: upErr } = await supabase.storage.from("avatars").upload(filePath, avatarFile, {
+            cacheControl: "3600",
+            upsert: true,
+          })
+          if (upErr) throw upErr
+          const { data: pub } = supabase.storage.from("avatars").getPublicUrl(upData.path)
+          const avatarUrl = pub.publicUrl
+          const { error: updErr } = await supabase.from("users").update({ avatar: avatarUrl }).eq("id", client.id)
+          if (updErr) throw updErr
+        }
+
         toast.success("Cliente atualizado com sucesso")
       } else {
-        // Create new client
-        const { data: authData, error: authError } = await supabase.auth.signUp({
+        // Create new client via server action (service role) com senha opcional
+        const reg = await registerUser({
           email: formData.email,
-          password: formData.password,
-          options: {
-            data: {
-              name: formData.name,
-            },
-          },
-        })
-
-        if (authError) throw authError
-        if (!authData.user) throw new Error("Erro ao criar usuário")
-
-        // Create user record
-        const { error: userError } = await supabase.from("users").insert({
-          id: authData.user.id,
+          password: formData.password || undefined,
           name: formData.name,
-          email: formData.email,
-          phone: formData.phone,
-          role: "CLIENT",
+          phone: formData.phone || undefined,
         })
+        if ((reg as any)?.error) throw new Error((reg as any).error)
+        const newUserId = (reg as any)?.userId as string
+        if (!newUserId) throw new Error("Falha ao obter ID do usuário recém-criado")
 
-        if (userError) throw userError
+        // Upload avatar se houver arquivo
+        if (avatarFile) {
+          const ensured = await ensureBucket("avatars")
+          if ((ensured as any)?.error) throw new Error((ensured as any).error)
+          const ext = avatarFile.name.split(".").pop()?.toLowerCase() || "jpg"
+          const filePath = `users/${newUserId}-${Date.now()}.${ext}`
+          const { data: upData, error: upErr } = await supabase.storage.from("avatars").upload(filePath, avatarFile, {
+            cacheControl: "3600",
+            upsert: true,
+          })
+          if (upErr) throw upErr
+          const { data: pub } = supabase.storage.from("avatars").getPublicUrl(upData.path)
+          const avatarUrl = pub.publicUrl
+          const { error: updErr } = await supabase.from("users").update({ avatar: avatarUrl }).eq("id", newUserId)
+          if (updErr) throw updErr
+        }
 
         toast.success("Cliente criado com sucesso")
       }
@@ -97,6 +133,16 @@ export function ClientForm({ client }: ClientFormProps) {
           <CardTitle>Informações do Cliente</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="flex items-center gap-4">
+            <Avatar className="h-16 w-16">
+              <AvatarImage src={avatarPreview || undefined} alt={formData.name || "Avatar"} />
+              <AvatarFallback>{(formData.name || "C").slice(0, 1).toUpperCase()}</AvatarFallback>
+            </Avatar>
+            <div className="space-y-2">
+              <Label htmlFor="avatar">Foto de Perfil</Label>
+              <Input id="avatar" type="file" accept="image/*" onChange={handleAvatarChange} />
+            </div>
+          </div>
           <div className="space-y-2">
             <Label htmlFor="name">Nome Completo</Label>
             <Input
@@ -132,14 +178,13 @@ export function ClientForm({ client }: ClientFormProps) {
 
           {!client && (
             <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
+              <Label htmlFor="password">Senha (opcional)</Label>
               <Input
                 id="password"
                 type="password"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                required
-                minLength={6}
+                placeholder="Deixe vazio para enviar convite por email"
               />
             </div>
           )}

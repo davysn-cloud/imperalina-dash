@@ -33,7 +33,7 @@ do $$ begin
     end;
     $$ language plpgsql;
   end if;
-end $$;
+end $$ language plpgsql;
 
 drop trigger if exists update_app_settings_updated_at on app_settings;
 create trigger update_app_settings_updated_at before update on app_settings

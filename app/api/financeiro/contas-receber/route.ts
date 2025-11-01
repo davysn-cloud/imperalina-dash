@@ -135,6 +135,53 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Erro ao atualizar pagamento" }, { status: 500 })
     }
 
+    // Se o pagamento foi marcado como PAID, criar uma conta a pagar de comissão
+    if (payment_status === "PAID") {
+      // Buscar dados necessários para calcular a comissão
+      const { data: appt, error: apptErr } = await supabase
+        .from("appointments")
+        .select(`
+          id,
+          date,
+          payment_amount,
+          professional:professionals(id, user:users(name, email)),
+          service:services(id, name, price, commission_percentage)
+        `)
+        .eq("id", id)
+        .single()
+
+      if (!apptErr && appt) {
+        // Helpers para lidar com relacionamentos
+        const getRel = (rel: any) => (Array.isArray(rel) ? rel?.[0] : rel) || {}
+        const serv = getRel(appt.service)
+        const prof = getRel(appt.professional)
+        const profUser = getRel(prof.user)
+
+        const valorServico: number = Number(appt.payment_amount ?? serv.price ?? 0) || 0
+        const percentual: number = Number(serv.commission_percentage ?? 0) || 0
+        const valorComissao = Number(((valorServico * percentual) / 100).toFixed(2))
+
+        if (valorComissao > 0) {
+          const descricao = `Comissão de ${serv.name || "serviço"} - ${profUser.name || "Profissional"}`
+          const dataVencimento = (appt.date as string) || new Date().toISOString().slice(0, 10)
+
+          const { error: cpErr } = await supabase.from("contas_pagar").insert({
+            descricao,
+            categoria: "COMISSAO",
+            valor: valorComissao,
+            data_vencimento: dataVencimento,
+            observacoes: `Gerado automaticamente pelo recebimento do atendimento ${appt.id}`,
+          })
+
+          if (cpErr) {
+            console.warn("Falha ao criar conta a pagar de comissão:", cpErr)
+          }
+        }
+      } else {
+        console.warn("Não foi possível buscar dados do atendimento para calcular comissão:", apptErr)
+      }
+    }
+
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("Erro na API de atualização de pagamento:", error)

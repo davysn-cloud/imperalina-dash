@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { z } from "zod"
+import { sendEmail } from "@/lib/email/resend-service"
 
 const followInSchema = z.object({
   clientMood: z.enum(["VERY_HAPPY", "HAPPY", "NEUTRAL", "TIRED", "STRESSED", "UPSET"]).optional(),
@@ -81,6 +82,54 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       .single()
 
     if (error) throw error
+
+    // Enviar briefing por email ao funcionário responsável
+    const { data: apptForEmail, error: apptEmailErr } = await supabase
+      .from("appointments")
+      .select(`
+        id,
+        date,
+        client:users!appointments_client_id_fkey(name),
+        professional:professionals(id, user:users(name, email)),
+        service:services(name)
+      `)
+      .eq("id", id)
+      .single()
+
+    if (!apptEmailErr && apptForEmail) {
+      const getRel = (rel: any) => (Array.isArray(rel) ? rel?.[0] : rel) || {}
+      const prof = getRel(apptForEmail.professional)
+      const profUser = getRel(prof.user)
+      const client = getRel(apptForEmail.client)
+      const serv = getRel(apptForEmail.service)
+
+      const subject = `Follow In - ${serv.name || "Serviço"} - ${client.name || "Cliente"} (${apptForEmail.date})`
+      const html = `
+        <h2>Follow In registrado</h2>
+        <p><strong>Cliente:</strong> ${client.name || "-"}</p>
+        <p><strong>Serviço:</strong> ${serv.name || "-"}</p>
+        <p><strong>Data:</strong> ${apptForEmail.date}</p>
+        <hr />
+        <p><strong>Humor do cliente:</strong> ${dbData.client_mood ?? "-"}</p>
+        <p><strong>Chegou no horário:</strong> ${dbData.arrived_on_time ? "Sim" : dbData.arrived_on_time === false ? "Não" : "-"}</p>
+        ${dbData.arrival_notes ? `<p><strong>Observações da chegada:</strong> ${dbData.arrival_notes}</p>` : ""}
+        <p><strong>Café hoje:</strong> ${dbData.coffee_today ? "Sim" : dbData.coffee_today === false ? "Não" : "-"}</p>
+        ${dbData.coffee_strength_today ? `<p><strong>Força do café:</strong> ${dbData.coffee_strength_today}</p>` : ""}
+        ${dbData.music_today ? `<p><strong>Música do dia:</strong> ${dbData.music_today}</p>` : ""}
+        ${dbData.temperature_today ? `<p><strong>Temperatura do ambiente:</strong> ${dbData.temperature_today}</p>` : ""}
+        ${dbData.special_requests ? `<p><strong>Pedidos especiais:</strong> ${dbData.special_requests}</p>` : ""}
+        ${dbData.time_constraints ? `<p><strong>Restrições de tempo:</strong> ${dbData.time_constraints}</p>` : ""}
+        ${dbData.professional_notes ? `<p><strong>Notas do profissional:</strong> ${dbData.professional_notes}</p>` : ""}
+      `
+
+      if (profUser?.email) {
+        await sendEmail({
+          to: profUser.email,
+          subject,
+          html,
+        })
+      }
+    }
 
     return NextResponse.json(followIn)
   } catch (error: any) {

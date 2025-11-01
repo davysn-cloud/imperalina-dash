@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { z } from "zod"
+import { sendEmail } from "@/lib/email/resend-service"
 
 const followUpSchema = z.object({
   serviceReason: z.string().optional(),
@@ -154,6 +155,58 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             alerts.push({ produto_id: link.produto_id, motivo: "Baixa parcial; estoque insuficiente" })
           }
         }
+      }
+    }
+
+    // Enviar briefing por email ao funcionário responsável
+    const { data: apptForEmail, error: apptEmailErr } = await supabase
+      .from("appointments")
+      .select(`
+        id,
+        date,
+        client:users!appointments_client_id_fkey(name),
+        professional:professionals(id, user:users(name, email)),
+        service:services(name)
+      `)
+      .eq("id", id)
+      .single()
+
+    if (!apptEmailErr && apptForEmail) {
+      const getRel = (rel: any) => (Array.isArray(rel) ? rel?.[0] : rel) || {}
+      const prof = getRel(apptForEmail.professional)
+      const profUser = getRel(prof.user)
+      const client = getRel(apptForEmail.client)
+      const serv = getRel(apptForEmail.service)
+
+      const subject = `Follow Up - ${serv.name || "Serviço"} - ${client.name || "Cliente"} (${apptForEmail.date})`
+      const html = `
+        <h2>Follow Up registrado</h2>
+        <p><strong>Cliente:</strong> ${client.name || "-"}</p>
+        <p><strong>Serviço:</strong> ${serv.name || "-"}</p>
+        <p><strong>Data:</strong> ${apptForEmail.date}</p>
+        <hr />
+        ${dbData.service_reason ? `<p><strong>Motivo do serviço:</strong> ${dbData.service_reason}</p>` : ""}
+        ${dbData.event_date ? `<p><strong>Data do evento:</strong> ${dbData.event_date}</p>` : ""}
+        ${dbData.event_importance ? `<p><strong>Importância:</strong> ${dbData.event_importance}</p>` : ""}
+        ${Array.isArray(dbData.conversation_topics) && dbData.conversation_topics.length ? `<p><strong>Tópicos de conversação:</strong> ${dbData.conversation_topics.join(", ")}</p>` : ""}
+        ${Array.isArray(dbData.personal_milestones) && dbData.personal_milestones.length ? `<p><strong>Marcos pessoais:</strong> ${dbData.personal_milestones.join(", ")}</p>` : ""}
+        ${Array.isArray(dbData.follow_up_topics) && dbData.follow_up_topics.length ? `<p><strong>Tópicos de follow-up:</strong> ${dbData.follow_up_topics.join(", ")}</p>` : ""}
+        ${Array.isArray(dbData.reminders) && dbData.reminders.length ? `<p><strong>Lembretes:</strong> ${dbData.reminders.join(", ")}</p>` : ""}
+        ${typeof dbData.client_satisfaction !== "undefined" ? `<p><strong>Satisfação do cliente:</strong> ${dbData.client_satisfaction}</p>` : ""}
+        ${dbData.service_quality ? `<p><strong>Qualidade do serviço:</strong> ${dbData.service_quality}</p>` : ""}
+        ${dbData.client_feedback ? `<p><strong>Feedback do cliente:</strong> ${dbData.client_feedback}</p>` : ""}
+        ${Array.isArray(dbData.products_used) && dbData.products_used.length ? `<p><strong>Produtos usados:</strong> ${dbData.products_used.join(", ")}</p>` : ""}
+        ${Array.isArray(dbData.products_recommended) && dbData.products_recommended.length ? `<p><strong>Produtos recomendados:</strong> ${dbData.products_recommended.join(", ")}</p>` : ""}
+        ${dbData.technical_notes ? `<p><strong>Notas técnicas:</strong> ${dbData.technical_notes}</p>` : ""}
+        ${dbData.next_service_suggestion ? `<p><strong>Sugestão de próximo serviço:</strong> ${dbData.next_service_suggestion}</p>` : ""}
+      `
+
+      if (profUser?.email) {
+        await sendEmail({
+          to: profUser.email,
+          subject,
+          html,
+        })
       }
     }
 

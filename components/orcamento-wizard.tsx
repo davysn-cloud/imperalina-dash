@@ -101,6 +101,9 @@ export function OrcamentoWizard({ clients, services, templates }: OrcamentoWizar
           <OrcamentoPreview
             orcamento={orcamentoData as Orcamento}
             template={selectedTemplate}
+            onUpdateTemplate={(updates) => {
+              setSelectedTemplate((prev) => (prev ? ({ ...prev, ...updates } as OrcamentoTemplate) : prev))
+            }}
           />
         )}
       </div>
@@ -142,14 +145,7 @@ export function OrcamentoWizard({ clients, services, templates }: OrcamentoWizar
                 <ChevronRight className="ml-2 h-4 w-4" />
               </Button>
             ) : (
-              <div className="space-x-2">
-                <Button variant="outline">
-                  Salvar Rascunho
-                </Button>
-                <Button>
-                  Salvar e Enviar
-                </Button>
-              </div>
+              <div />
             )}
           </div>
         </CardContent>

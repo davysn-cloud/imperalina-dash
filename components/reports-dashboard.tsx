@@ -506,10 +506,7 @@ export default function ReportsDashboard() {
         <TabsList>
           <TabsTrigger value="insights">Análise de Performance</TabsTrigger>
           <TabsTrigger value="profissionais">Performance por Profissional</TabsTrigger>
-          <TabsTrigger value="servicos">Serviços Mais Rentáveis</TabsTrigger>
-          <TabsTrigger value="clientes">Segmentação de Clientes</TabsTrigger>
           <TabsTrigger value="tendencias">Análise de Tendências</TabsTrigger>
-          <TabsTrigger value="horarios">Horários de Pico</TabsTrigger>
         </TabsList>
 
         {/* 2.1 Dashboard de Insights */}
@@ -637,12 +634,6 @@ export default function ReportsDashboard() {
                         <TableCell className="text-right">{formatCurrency(p.faturamento)}</TableCell>
                         <TableCell className="text-right">{formatCurrency(p.ticketMedio)}</TableCell>
                         <TableCell className="text-right">{p.taxaConclusao}%</TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button variant="outline" size="sm">Ver Detalhes</Button>
-                            <Button variant="outline" size="sm">Comparar</Button>
-                          </div>
-                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -650,58 +641,6 @@ export default function ReportsDashboard() {
               </div>
               <div className="mt-4 text-sm text-muted-foreground">
                 Insights automáticos (exemplo): destaque para crescimento, liderança e atenção a NPS.
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Serviços Mais Rentáveis */}
-        <TabsContent value="servicos" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {services.map((s, idx) => (
-              <Card key={s.serviceId}>
-                <CardHeader className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Badge variant="outline">#{idx + 1}</Badge>
-                    <Badge className={s.margemPctAprox > 40 ? "bg-green-600" : s.margemPctAprox > 25 ? "bg-blue-600" : "bg-red-600"}>{s.margemPctAprox}% margem</Badge>
-                  </div>
-                  <CardTitle className="text-base">{s.nome}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2 text-sm">
-                  <div className="flex justify-between"><span>Faturamento</span><span className="font-semibold">{formatCurrency(s.faturamento)}</span></div>
-                  <div className="flex justify-between"><span>Lucro líquido (real)</span><span>{formatCurrency(s.lucroLiquidoAprox)}</span></div>
-                  <div className="flex justify-between"><span>Realizações</span><span>{s.realizacoes}</span></div>
-                  <div className="flex justify-between"><span>Ticket médio</span><span>{formatCurrency(s.ticketMedio)}</span></div>
-                  <div className="flex justify-between"><span>Participação</span><span>{s.participacaoPct}%</span></div>
-                  <div className="flex justify-between"><span>Tendência</span><span>{s.tendencia === "up" ? "📈" : s.tendencia === "down" ? "📉" : "➡️"}</span></div>
-                  <Button variant="outline" className="mt-2" size="sm" asChild>
-  <Link href={`/relatorios/servicos/${s.serviceId}`}>Ver Análise Completa</Link>
-</Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-
-        {/* Segmentação de Clientes */}
-        <TabsContent value="clientes" className="space-y-4">
-          <Card>
-            <CardHeader className="flex items-center justify-between">
-              <CardTitle>Distribuição por Segmento</CardTitle>
-              <PieIcon className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-4">
-                {segments.map((seg) => (
-                  <div key={seg.nome} className="space-y-2 p-3 border rounded-md">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">{seg.nome}</span>
-                      <span className="text-xs" style={{ color: seg.cor }}>{seg.percentual}%</span>
-                    </div>
-                    <div className="text-2xl font-bold">{seg.quantidade}</div>
-                    <div className="text-xs text-muted-foreground">{seg.percentual}% da base</div>
-                  </div>
-                ))}
               </div>
             </CardContent>
           </Card>
@@ -849,142 +788,142 @@ export default function ReportsDashboard() {
           </Card>
 
         </TabsContent>
+      </Tabs>
 
-        {/* Horários de Pico */}
-        <TabsContent value="horarios" className="space-y-4">
-          {/* Heatmap */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Mapa de Calor - Taxa de Ocupação</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {/* Cabeçalho dos dias */}
-                <div className="grid grid-cols-8 gap-1 text-xs font-medium text-center">
-                  <div></div>
-                  <div>Seg</div>
-                  <div>Ter</div>
-                  <div>Qua</div>
-                  <div>Qui</div>
-                  <div>Sex</div>
-                  <div>Sáb</div>
-                  <div>Dom</div>
-                </div>
-                
-                {/* Grid do heatmap */}
-                {Array.from({ length: 13 }, (_, hourIdx) => {
-                  const hour = hourIdx + 8; // 8h às 20h
-                  return (
-                    <div key={hour} className="grid grid-cols-8 gap-1">
-                      <div className="text-xs font-medium text-right pr-2 py-1">
-                        {hour}:00
-                      </div>
-                      {Array.from({ length: 7 }, (_, dayIdx) => {
-                        const heatData = heatmap.find(h => h.day === dayIdx && h.hour === hour);
-                        const occupancy = heatData?.occupancy || 0;
-                        
-                        let bgColor = "bg-blue-100"; // <30%
-                        if (occupancy >= 90) bgColor = "bg-red-500";
-                        else if (occupancy >= 70) bgColor = "bg-orange-400";
-                        else if (occupancy >= 50) bgColor = "bg-yellow-300";
-                        else if (occupancy >= 30) bgColor = "bg-green-300";
-                        
-                        return (
-                          <div
-                            key={`${dayIdx}-${hour}`}
-                            className={`h-8 rounded cursor-pointer ${bgColor} flex items-center justify-center text-xs font-medium transition-all hover:scale-105`}
-                            title={`${['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'][dayIdx]} ${hour}:00\nOcupação: ${occupancy.toFixed(1)}%\nAtendimentos: ${heatData?.avgAppointments || 0}\nFaturamento: ${formatCurrency(heatData?.avgRevenue || 0)}`}
-                          >
-                            {occupancy > 0 ? `${occupancy.toFixed(0)}%` : ""}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                })}
+      {/* Horários de Pico (fora do menu de abas) */}
+      <div className="space-y-4">
+        {/* Heatmap */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Mapa de Calor - Taxa de Ocupação</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {/* Cabeçalho dos dias */}
+              <div className="grid grid-cols-8 gap-1 text-xs font-medium text-center">
+                <div></div>
+                <div>Seg</div>
+                <div>Ter</div>
+                <div>Qua</div>
+                <div>Qui</div>
+                <div>Sex</div>
+                <div>Sáb</div>
+                <div>Dom</div>
               </div>
               
-              {/* Legenda */}
-              <div className="mt-4 flex items-center justify-center gap-4 text-xs">
-                <div className="flex items-center gap-1">
-                  <div className="w-4 h-4 bg-blue-100 rounded"></div>
-                  <span>&lt;30%</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-4 h-4 bg-green-300 rounded"></div>
-                  <span>30-50%</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-4 h-4 bg-yellow-300 rounded"></div>
-                  <span>50-70%</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-4 h-4 bg-orange-400 rounded"></div>
-                  <span>70-90%</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-4 h-4 bg-red-500 rounded"></div>
-                  <span>&gt;90%</span>
+              {/* Grid do heatmap */}
+              {Array.from({ length: 13 }, (_, hourIdx) => {
+                const hour = hourIdx + 8; // 8h às 20h
+                return (
+                  <div key={hour} className="grid grid-cols-8 gap-1">
+                    <div className="text-xs font-medium text-right pr-2 py-1">
+                      {hour}:00
+                    </div>
+                    {Array.from({ length: 7 }, (_, dayIdx) => {
+                      const heatData = heatmap.find(h => h.day === dayIdx && h.hour === hour);
+                      const occupancy = heatData?.occupancy || 0;
+                      
+                      let bgColor = "bg-blue-100"; // <30%
+                      if (occupancy >= 90) bgColor = "bg-red-500";
+                      else if (occupancy >= 70) bgColor = "bg-orange-400";
+                      else if (occupancy >= 50) bgColor = "bg-yellow-300";
+                      else if (occupancy >= 30) bgColor = "bg-green-300";
+                      
+                      return (
+                        <div
+                          key={`${dayIdx}-${hour}`}
+                          className={`h-8 rounded cursor-pointer ${bgColor} flex items-center justify-center text-xs font-medium transition-all hover:scale-105`}
+                          title={`${['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'][dayIdx]} ${hour}:00\nOcupação: ${occupancy.toFixed(1)}%\nAtendimentos: ${heatData?.avgAppointments || 0}\nFaturamento: ${formatCurrency(heatData?.avgRevenue || 0)}`}
+                        >
+                          {occupancy > 0 ? `${occupancy.toFixed(0)}%` : ""}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+            
+            {/* Legenda */}
+            <div className="mt-4 flex items-center justify-center gap-4 text-xs">
+              <div className="flex items-center gap-1">
+                <div className="w-4 h-4 bg-blue-100 rounded"></div>
+                <span>&lt;30%</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-4 h-4 bg-green-300 rounded"></div>
+                <span>30-50%</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-4 h-4 bg-yellow-300 rounded"></div>
+                <span>50-70%</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-4 h-4 bg-orange-400 rounded"></div>
+                <span>70-90%</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-4 h-4 bg-red-500 rounded"></div>
+                <span>&gt;90%</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Cards de Insights */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {peakCards.map((card, idx) => (
+            <Card key={idx}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <span>{card.icon}</span>
+                  {card.title}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{card.value}</div>
+                <div className="text-xs text-muted-foreground">{card.subtitle}</div>
+                <div className="text-xs text-blue-600 mt-2">{card.recommendation}</div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Oportunidades Identificadas */}
+        <Card>
+          <CardHeader>
+            <CardTitle>🎯 Oportunidades Identificadas</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="p-4 border rounded-md bg-yellow-50">
+                <div className="font-medium text-sm mb-2">💡 Criar Promoções</div>
+                <div className="text-xs text-muted-foreground">
+                  Oferecer descontos em horários de baixa ocupação (&lt;30%) para aumentar demanda
                 </div>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Cards de Insights */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {peakCards.map((card, idx) => (
-              <Card key={idx}>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <span>{card.icon}</span>
-                    {card.title}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{card.value}</div>
-                  <div className="text-xs text-muted-foreground">{card.subtitle}</div>
-                  <div className="text-xs text-blue-600 mt-2">{card.recommendation}</div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          {/* Oportunidades Identificadas */}
-          <Card>
-            <CardHeader>
-              <CardTitle>🎯 Oportunidades Identificadas</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="p-4 border rounded-md bg-yellow-50">
-                  <div className="font-medium text-sm mb-2">💡 Criar Promoções</div>
-                  <div className="text-xs text-muted-foreground">
-                    Oferecer descontos em horários de baixa ocupação (&lt;30%) para aumentar demanda
-                  </div>
-                </div>
-                <div className="p-4 border rounded-md bg-green-50">
-                  <div className="font-medium text-sm mb-2">⚡ Otimizar Recursos</div>
-                  <div className="text-xs text-muted-foreground">
-                    Realocar profissionais para horários de pico (&gt;90%) para maximizar receita
-                  </div>
-                </div>
-                <div className="p-4 border rounded-md bg-blue-50">
-                  <div className="font-medium text-sm mb-2">📈 Estender Horários</div>
-                  <div className="text-xs text-muted-foreground">
-                    Considerar ampliar funcionamento em dias de alta demanda
-                  </div>
-                </div>
-                <div className="p-4 border rounded-md bg-purple-50">
-                  <div className="font-medium text-sm mb-2">💰 Preços Dinâmicos</div>
-                  <div className="text-xs text-muted-foreground">
-                    Implementar preços premium em horários de alta concorrência
-                  </div>
+              <div className="p-4 border rounded-md bg-green-50">
+                <div className="font-medium text-sm mb-2">⚡ Otimizar Recursos</div>
+                <div className="text-xs text-muted-foreground">
+                  Realocar profissionais para horários de pico (&gt;90%) para maximizar receita
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+              <div className="p-4 border rounded-md bg-blue-50">
+                <div className="font-medium text-sm mb-2">📈 Estender Horários</div>
+                <div className="text-xs text-muted-foreground">
+                  Considerar ampliar funcionamento em dias de alta demanda
+                </div>
+              </div>
+              <div className="p-4 border rounded-md bg-purple-50">
+                <div className="font-medium text-sm mb-2">💰 Preços Dinâmicos</div>
+                <div className="text-xs text-muted-foreground">
+                  Implementar preços premium em horários de alta concorrência
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

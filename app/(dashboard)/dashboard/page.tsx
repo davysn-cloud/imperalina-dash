@@ -184,10 +184,7 @@ export default async function DashboardPage() {
 
       <DashboardAreaChart data={chartData} />
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <DashboardCalendar />
-        <RecentAppointments appointments={recentAppointments || []} />
-      </div>
+      {/* Calendário e próximos agendamentos foram movidos para a página de Agendamentos */}
     </div>
   )
 }

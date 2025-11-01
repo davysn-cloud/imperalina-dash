@@ -9,6 +9,8 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
+import Image from "next/image"
+import MobileLogo from "@/app/MARCA-D'AGUA-LOGO-2.png"
 
 interface Professional {
   id: string
@@ -148,8 +150,10 @@ export function ProfessionalsList({ professionals }: ProfessionalsListProps) {
                 size="sm"
                 onClick={() => handleOpenCalendarLink(professional)}
                 disabled={!professional.calendar_feed_token}
+                aria-label="Assinar via Calendário iOS"
+                className="p-2"
               >
-                Assinar no Apple Calendar
+                <Image src={MobileLogo} alt="Calendário" className="h-4 w-4 object-contain" />
               </Button>
             </div>
           </CardContent>

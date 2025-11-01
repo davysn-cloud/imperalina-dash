@@ -171,10 +171,10 @@ export function OrcamentoForm({ clients, services, orcamentoData, onUpdateData }
                     <TableHeader>
                       <TableRow>
                         <TableHead>Serviço</TableHead>
-                        <TableHead className="w-20">Qtd</TableHead>
-                        <TableHead className="w-32">Valor Unit.</TableHead>
-                        <TableHead className="w-20">Desc. %</TableHead>
-                        <TableHead className="w-32">Subtotal</TableHead>
+                        <TableHead className="w-28">Qtd</TableHead>
+                        <TableHead className="w-40">Valor Unit.</TableHead>
+                        <TableHead className="w-28">Desc. %</TableHead>
+                        <TableHead className="w-40">Subtotal</TableHead>
                         <TableHead className="w-12"></TableHead>
                       </TableRow>
                     </TableHeader>
@@ -204,6 +204,7 @@ export function OrcamentoForm({ clients, services, orcamentoData, onUpdateData }
                               min="1"
                               value={item.quantidade}
                               onChange={(e) => atualizarItem(index, "quantidade", parseInt(e.target.value) || 1)}
+                              className="w-full text-right"
                             />
                           </TableCell>
                           <TableCell>
@@ -213,6 +214,7 @@ export function OrcamentoForm({ clients, services, orcamentoData, onUpdateData }
                               step="0.01"
                               value={item.valor_unitario}
                               onChange={(e) => atualizarItem(index, "valor_unitario", parseFloat(e.target.value) || 0)}
+                              className="w-full text-right"
                             />
                           </TableCell>
                           <TableCell>
@@ -222,6 +224,7 @@ export function OrcamentoForm({ clients, services, orcamentoData, onUpdateData }
                               max="100"
                               value={item.desconto}
                               onChange={(e) => atualizarItem(index, "desconto", parseFloat(e.target.value) || 0)}
+                              className="w-full text-right"
                             />
                           </TableCell>
                           <TableCell className="font-medium">

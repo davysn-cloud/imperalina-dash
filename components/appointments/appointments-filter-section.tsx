@@ -30,7 +30,12 @@ export function AppointmentsFilterSection({ appointments, userRole }: Appointmen
   return (
     <div className="space-y-4">
       <AgendamentoMenuBar value={filter} onValueChange={setFilter} />
-      <AppointmentsList appointments={appointments} userRole={userRole} statusFilter={filter} />
+      <AppointmentsList
+        appointments={appointments}
+        userRole={userRole}
+        statusFilter={filter}
+        onChangeFilter={(v) => setFilter(v)}
+      />
     </div>
   )
 }

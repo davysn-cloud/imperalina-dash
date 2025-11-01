@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
 import { Sparkles, RotateCw, Users } from "lucide-react"
-import { getGenerativeModel } from "@/lib/ai/gemini-client"
+import { getGenerativeModel, AI_AVAILABLE } from "@/lib/ai/gemini-client"
 import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 import { ResponsiveContainer, PieChart, Pie, Cell, Legend, Tooltip, BarChart, Bar, XAxis, YAxis } from "recharts"
 
@@ -239,10 +239,23 @@ export default function ClientesDashboardPage() {
           <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
             <RotateCw className="h-4 w-4 mr-2" /> Atualizar
           </Button>
-          <Button size="sm" onClick={handleGenerateAI} disabled={aiLoading}>
+          <Button
+            size="sm"
+            onClick={handleGenerateAI}
+            disabled={aiLoading || !AI_AVAILABLE}
+            title={!AI_AVAILABLE ? "Configure GOOGLE_GENERATIVE_AI_API_KEY para habilitar" : undefined}
+          >
             <Sparkles className="h-4 w-4 mr-2" /> {aiLoading ? "Gerando..." : "Gerar insights IA"}
           </Button>
         </div>
+      </div>
+      {!AI_AVAILABLE && (
+        <div className="text-xs text-muted-foreground">
+          IA desabilitada: defina `GOOGLE_GENERATIVE_AI_API_KEY` no `.env.local` (dev) e nos Secrets em produção.
+        </div>
+      )}
+      <div className="text-xs text-muted-foreground">
+        Critérios atuais: VIP se gasto mensal &gt; {thresholds.vipSpend} ou frequência &gt; {thresholds.vipFreq}/mês; Regular se gasto &ge; {thresholds.regularSpend} ou frequência &ge; {thresholds.regularFreq}/mês; Inativo se sem atividade há &ge; {thresholds.inativoDays} dias.
       </div>
 
       <Card>

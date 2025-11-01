@@ -1,8 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -178,6 +180,9 @@ export default function ComissoesPage() {
   const [selectedComissao, setSelectedComissao] = useState<ComissaoAPI | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const searchParams = useSearchParams()
+  const [handledParam, setHandledParam] = useState(false)
+  const [showDeepLinkNotice, setShowDeepLinkNotice] = useState(false)
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -215,6 +220,24 @@ export default function ComissoesPage() {
     return labels[tipo]
   }
 
+  useEffect(() => {
+    const id = searchParams.get("comissao_id")
+    if (!id || handledParam) return
+    if (comissoes.length === 0) return
+    const found = comissoes.find((c) => c.id === id)
+    if (found) {
+      setSelectedComissao(found)
+      setDetalhesModalOpen(true)
+      setShowDeepLinkNotice(true)
+      setHandledParam(true)
+      try {
+        const url = new URL(window.location.href)
+        url.searchParams.delete('comissao_id')
+        window.history.replaceState(null, '', url.toString())
+      } catch {}
+    }
+  }, [searchParams, comissoes, handledParam])
+
   const handleSalvarConfig = async () => {
     if (!selectedProfissional) return
     
@@ -231,9 +254,54 @@ export default function ComissoesPage() {
 
   const handleAprovarComissao = async (comissaoId: string) => {
     try {
-      // Implementar aprovação de comissão
-      console.log("Aprovando comissão:", comissaoId)
-      // Aqui você pode implementar a lógica para aprovar comissões
+      const comissao = comissoes.find((c) => c.id === comissaoId)
+      if (!comissao) throw new Error("Comissão não encontrada")
+
+      const faturamento = comissao.atendimentos.reduce((sum, a) => sum + a.valor_servico, 0)
+      const mes = new Date().toISOString().slice(0, 7)
+      const [yStr, mStr] = (mes || new Date().toISOString().slice(0, 7)).split("-")
+      const y = parseInt(yStr, 10)
+      const m = parseInt(mStr, 10)
+      const pad = (n: number) => n.toString().padStart(2, "0")
+      const periodo_inicio = `${y}-${pad(m)}-01`
+      const nextMonth = m === 12 ? 1 : m + 1
+      const nextYear = m === 12 ? y + 1 : y
+      const periodo_fim = `${nextYear}-${pad(nextMonth)}-01`
+
+      const supabase = getSupabaseBrowserClient()
+
+      const { data: comissaoRow, error: errUpsert } = await supabase
+        .from("comissoes")
+        .upsert({
+          professional_id: comissao.profissional_id,
+          periodo_inicio,
+          periodo_fim,
+          total_atendimentos: comissao.atendimentos.length,
+          total_faturamento: Number(faturamento || 0),
+          total_comissao: Number(comissao.total_comissao || 0),
+          bonificacoes: Number(comissao.bonificacoes || 0),
+          valor_final: Number(comissao.valor_final || 0),
+          status: "APROVADO",
+        }, { onConflict: "professional_id,periodo_inicio,periodo_fim" })
+        .select("*")
+        .single()
+      if (errUpsert) throw errUpsert
+
+      if (Array.isArray(comissao.atendimentos) && comissao.atendimentos.length > 0) {
+        await supabase.from("comissao_atendimentos").delete().eq("comissao_id", (comissaoRow as any).id)
+        const detalhes = comissao.atendimentos.map((a) => ({
+          comissao_id: (comissaoRow as any).id,
+          appointment_id: a.id,
+          valor_servico: Number(a.valor_servico || 0),
+          percentual_comissao: Number(a.percentual_comissao || 0),
+          valor_comissao: Number(a.valor_comissao || 0),
+        }))
+        await supabase.from("comissao_atendimentos").insert(detalhes)
+      }
+
+      // Aprovar no estado e guardar o ID da comissão persistida
+      setComissoes((prev) => prev.map((c) => (c.id === comissaoId ? { ...c, status: "aprovado" as ComissaoStatus } : c)))
+      setComissaoIds((prev) => ({ ...prev, [comissao.profissional_id]: (comissaoRow as any).id }))
     } catch (error) {
       console.error("Erro ao aprovar comissão:", error)
       setError("Erro ao aprovar comissão")
@@ -242,14 +310,75 @@ export default function ComissoesPage() {
 
   const handleGerarPagamento = async (comissaoId: string) => {
     try {
-      // Implementar geração de conta a pagar
-      console.log("Gerando pagamento para comissão:", comissaoId)
-      // Aqui você pode implementar a lógica para gerar pagamentos
+      const comissao = comissoes.find((c) => c.id === comissaoId)
+      if (!comissao) throw new Error("Comissão não encontrada")
+
+      // Garantir que existe uma comissão persistida e obter seu ID
+      let persistedId = comissaoIds[comissao.profissional_id]
+      if (!persistedId) {
+        await handleAprovarComissao(comissaoId)
+        persistedId = comissaoIds[comissao.profissional_id]
+      }
+      if (!persistedId) throw new Error("Não foi possível obter o ID da comissão")
+      const supabase = getSupabaseBrowserClient()
+      const { data: comissaoRow, error: errCom } = await supabase
+        .from("comissoes")
+        .select("id, professional_id, periodo_inicio, periodo_fim, valor_final")
+        .eq("id", persistedId)
+        .single()
+      if (errCom || !comissaoRow) throw errCom || new Error("Comissão não encontrada")
+
+      const { data: config, error: errCfg } = await supabase
+        .from("comissao_config")
+        .select("dia_pagamento")
+        .eq("professional_id", (comissaoRow as any).professional_id)
+        .single()
+      if (errCfg) console.warn("Não foi possível buscar dia_pagamento:", errCfg)
+
+      const diaPagamento = (config as any)?.dia_pagamento || 5
+      const hoje = new Date()
+      const ano = hoje.getFullYear()
+      const mesNum = hoje.getMonth() // 0-11
+      const dataVencimento = new Date(ano, mesNum, diaPagamento)
+      const vencIso = dataVencimento.toISOString().slice(0, 10)
+
+      const descMes = `${String(mesNum + 1).padStart(2, "0")}/${ano}`
+      const descricao = `Comissão Profissional ${(comissaoRow as any).professional_id} - ${descMes}`
+
+      const { data: created, error: errPay } = await supabase
+        .from("contas_pagar")
+        .insert({
+          descricao,
+          categoria: "COMISSAO",
+          valor: Number((comissaoRow as any).valor_final || 0),
+          data_vencimento: vencIso,
+          observacoes: `Período: ${(comissaoRow as any).periodo_inicio} a ${(comissaoRow as any).periodo_fim}`,
+          status: "PENDENTE",
+        })
+        .select("*")
+        .single()
+      if (errPay) throw errPay
+
+      await supabase
+        .from("comissoes")
+        .update({ conta_pagar_id: (created as any).id })
+        .eq("id", persistedId)
+
+      // Guardar o vínculo da conta a pagar criada para habilitar "Ver conta"
+      setContaPagarIds((prev) => ({ ...prev, [comissao.profissional_id]: (created as any).id }))
+
+      // Mantém status "aprovado"; pagamento será marcado quando a conta for paga
+      // Poderíamos exibir um toast de sucesso aqui.
     } catch (error) {
       console.error("Erro ao gerar pagamento:", error)
       setError("Erro ao gerar pagamento")
     }
   }
+
+  // Mapeia profissional -> comissao_id persistido
+  const [comissaoIds, setComissaoIds] = useState<Record<string, string>>({})
+  // Mapeia profissional -> conta_pagar_id criada
+  const [contaPagarIds, setContaPagarIds] = useState<Record<string, string>>({})
 
   const getProfissionalNome = (id: string) => {
     return profissionais.find(p => p.id === id)?.nome || "Profissional não encontrado"
@@ -274,7 +403,8 @@ export default function ComissoesPage() {
 
         if (professionalsError) throw professionalsError
 
-        const profissionaisFormatados = (professionalsData || []).map((prof: any) => ({
+        const professionalsList = Array.isArray(professionalsData) ? professionalsData : []
+        const profissionaisFormatados = professionalsList.map((prof: any) => ({
           id: prof.id,
           nome: Array.isArray(prof.user) ? prof.user[0]?.name || "" : prof.user?.name || "",
           email: "",
@@ -341,7 +471,8 @@ export default function ComissoesPage() {
         // Calcular comissões por profissional
         const comissoesMap = new Map<string, ComissaoAPI>();
 
-        (appointments || []).forEach((apt: any) => {
+        const appointmentsList = Array.isArray(appointments) ? appointments : []
+        appointmentsList.forEach((apt: any) => {
           const profRel = apt.professional
           const servRel = apt.service
 
@@ -384,8 +515,58 @@ export default function ComissoesPage() {
           })
         })
 
+        // Buscar comissões persistidas do período (para refletir status e vínculos)
+        const { data: persistidas, error: persistidasError } = await supabase
+          .from("comissoes")
+          .select("id, professional_id, status, conta_pagar_id, periodo_inicio, periodo_fim")
+          .gte("periodo_inicio", periodStart)
+          .lt("periodo_fim", periodEndExclusive)
+
+        if (persistidasError) {
+          console.warn("Falha ao carregar comissões persistidas:", persistidasError)
+        }
+
+        const statusMap = (s: string): ComissaoStatus => {
+          const up = (s || "").toUpperCase()
+          if (up === "APROVADO") return "aprovado" as ComissaoStatus
+          if (up === "PAGO") return "pago" as ComissaoStatus
+          return "calculado" as ComissaoStatus
+        }
+
+        const persistedByProf: Record<string, { id: string; conta_pagar_id?: string; status: ComissaoStatus }> = {}
+        const persistidasList = Array.isArray(persistidas) ? persistidas : []
+        persistidasList.forEach((row: any) => {
+          if (row.professional_id) {
+            persistedByProf[row.professional_id] = {
+              id: row.id,
+              conta_pagar_id: row.conta_pagar_id || undefined,
+              status: statusMap(row.status),
+            }
+          }
+        })
+
+        // Mesclar status/vínculos persistidos nas comissões calculadas
+        const merged = Array.from(comissoesMap.values()).map((c) => {
+          const p = persistedByProf[c.profissional_id]
+          if (p) {
+            return { ...c, status: p.status }
+          }
+          return c
+        })
+
+        // Preencher mapas de IDs (comissão e conta)
+        const nextComissaoIds: Record<string, string> = {}
+        const nextContaPagarIds: Record<string, string> = {}
+        Object.keys(persistedByProf).forEach((profId) => {
+          nextComissaoIds[profId] = persistedByProf[profId].id
+          const contaId = persistedByProf[profId].conta_pagar_id
+          if (contaId) nextContaPagarIds[profId] = contaId
+        })
+
         setProfissionais(profissionaisFormatados)
-        setComissoes(Array.from(comissoesMap.values()))
+        setComissoes(merged)
+        setComissaoIds(nextComissaoIds)
+        setContaPagarIds(nextContaPagarIds)
       } catch (err) {
         console.error("Erro ao carregar dados:", err)
         setError("Erro ao carregar dados. Tente novamente.")
@@ -439,6 +620,24 @@ export default function ComissoesPage() {
           </p>
         </div>
       </div>
+
+      {/* Aviso de navegação por deep link */}
+      {showDeepLinkNotice && (
+        <Alert className="mb-4">
+          <AlertTitle>Navegação Direta</AlertTitle>
+          <AlertDescription className="flex items-center justify-between">
+            <span>Você foi direcionado para os detalhes de uma comissão específica.</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowDeepLinkNotice(false)}
+              className="ml-2"
+            >
+              Dispensar
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Tabs defaultValue="configuracao" className="space-y-4">
         <TabsList>
@@ -661,6 +860,19 @@ export default function ComissoesPage() {
                                 Pagar
                               </Button>
                             )}
+                            {((comissao.status === "aprovado") || (comissao.status === "pago")) && contaPagarIds[comissao.profissional_id] && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  // Navegar para Contas a Pagar destacando a conta e pré-filtrando categoria
+                                  const contaId = contaPagarIds[comissao.profissional_id]
+                                  window.location.href = `/financeiro/contas-pagar?id=${contaId}&categoria=COMISSAO`
+                                }}
+                              >
+                                Ver conta
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -817,6 +1029,73 @@ export default function ComissoesPage() {
                     <span className="font-bold">{formatCurrency(selectedComissao.valor_final)}</span>
                   </div>
                 </div>
+                
+                {/* Seção de IDs vinculados */}
+                <div className="border-t pt-4 mt-4">
+                  <h4 className="font-semibold mb-3 text-sm text-gray-600">IDs de Referência</h4>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between bg-gray-50 p-2 rounded">
+                      <div>
+                        <span className="text-xs text-gray-500">ID da Comissão:</span>
+                        <div className="font-mono text-sm">{selectedComissao.id}</div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => navigator.clipboard.writeText(selectedComissao.id)}
+                        className="h-8 px-2"
+                      >
+                        Copiar
+                      </Button>
+                    </div>
+                    
+                    <div className="flex items-center justify-between bg-gray-50 p-2 rounded">
+                      <div>
+                        <span className="text-xs text-gray-500">ID do Profissional:</span>
+                        <div className="font-mono text-sm">{selectedComissao.profissional_id}</div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => navigator.clipboard.writeText(selectedComissao.profissional_id)}
+                        className="h-8 px-2"
+                      >
+                        Copiar
+                      </Button>
+                    </div>
+                    
+                    {contaPagarIds[selectedComissao.profissional_id] && (
+                      <div className="flex items-center justify-between bg-blue-50 p-2 rounded border border-blue-200">
+                        <div>
+                          <span className="text-xs text-blue-600">ID da Conta Vinculada:</span>
+                          <div className="font-mono text-sm text-blue-800">{contaPagarIds[selectedComissao.profissional_id]}</div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => navigator.clipboard.writeText(contaPagarIds[selectedComissao.profissional_id])}
+                          className="h-8 px-2 text-blue-600 hover:text-blue-800"
+                        >
+                          Copiar
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                {contaPagarIds[selectedComissao.profissional_id] && (
+                  <div className="pt-3">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        const contaId = contaPagarIds[selectedComissao.profissional_id]
+                        window.location.href = `/financeiro/contas-pagar?id=${contaId}&categoria=COMISSAO`
+                      }}
+                    >
+                      Ver conta vinculada
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           )}

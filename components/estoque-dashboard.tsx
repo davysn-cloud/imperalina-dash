@@ -42,6 +42,8 @@ export default function EstoqueDashboard() {
   const [showSelectedList, setShowSelectedList] = React.useState(false)
   const [categoriasCount, setCategoriasCount] = React.useState<number>(0)
   const [fornecedoresCount, setFornecedoresCount] = React.useState<number>(0)
+  const [pedidosPendentes, setPedidosPendentes] = React.useState<any[]>([])
+  const [recebendo, setRecebendo] = React.useState<string | null>(null)
 
   const daysUntil = (v?: string | null) => (v ? Math.ceil((new Date(v).getTime() - Date.now()) / 86400000) : 9999)
 
@@ -85,10 +87,11 @@ export default function EstoqueDashboard() {
         // Compras pendentes reais
         const { data: pendentes, error: errP } = await supabase
           .from("pedidos_compra")
-          .select("produto_id, quantidade, status")
+          .select("id, produto_id, quantidade, status, produto:produtos(nome)")
           .eq("status", "pendente")
         if (errP) throw errP
         setComprasPendentes((pendentes || []).length)
+        setPedidosPendentes(pendentes || [])
         const priceMap = new Map((data || []).map((r: any) => [r.id, r.preco_custo ?? 0]))
         const totalPendentesCalc = (pendentes || []).reduce((sum: number, it: any) => sum + ((priceMap.get(it.produto_id) || 0) * (it.quantidade || 0)), 0)
         setTotalComprasPendentes(totalPendentesCalc)
@@ -465,6 +468,79 @@ export default function EstoqueDashboard() {
             <p className="text-xs text-muted-foreground">Total pendente: <span className="font-medium">{formatCurrency(totalComprasPendentes)}</span></p>
           </CardContent>
         </Card>
+      </div>
+      {/* Pedidos pendentes com ação de recebimento */}
+      <div className="space-y-4">
+        <h2 className="text-xl font-semibold">Pedidos de Compra Pendentes</h2>
+        {pedidosPendentes.length === 0 ? (
+          <p className="text-muted-foreground">Nenhum pedido pendente.</p>
+        ) : (
+          <div className="grid gap-3">
+            {pedidosPendentes.map((p) => {
+              const produtoNome = Array.isArray(p.produto) ? p.produto[0]?.nome : p.produto?.nome
+              return (
+                <div key={p.id} className="flex items-center justify-between rounded border p-3">
+                  <div>
+                    <div className="font-medium">{produtoNome || "Produto"}</div>
+                    <div className="text-sm text-muted-foreground">Qtd: {p.quantidade}</div>
+                  </div>
+                  <Button
+                    size="sm"
+                    disabled={recebendo === p.id}
+                    onClick={async () => {
+                      try {
+                        setRecebendo(p.id)
+                        const resp = await fetch("/api/estoque/pedidos/receber", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ pedido_compra_id: p.id }),
+                        })
+                        if (!resp.ok) throw new Error("Falha ao receber pedido")
+                        toast({ title: "Pedido recebido", description: `Estoque atualizado para ${produtoNome}` })
+                        // Atualizar UI
+                        // Recarregar dados principais
+                        const load = async () => {
+                          try {
+                            const { data, error } = await supabase
+                              .from("produtos")
+                              .select("id,nome,quantidade_atual,quantidade_minima,preco_custo,preco_venda,validade")
+                            if (!error) {
+                              const mapped: any[] = (data || []).map((r: any) => ({
+                                id: r.id,
+                                nome: r.nome,
+                                quantidade: r.quantidade_atual ?? 0,
+                                minimo: r.quantidade_minima ?? 0,
+                                precoCusto: r.preco_custo ?? 0,
+                                precoVenda: r.preco_venda ?? 0,
+                                validadeDias: (r.validade ? Math.ceil((new Date(r.validade).getTime() - Date.now()) / 86400000) : 9999),
+                              }))
+                              setProdutos(mapped)
+                            }
+                            const { data: pendentes } = await supabase
+                              .from("pedidos_compra")
+                              .select("id, produto_id, quantidade, status, produto:produtos(nome)")
+                              .eq("status", "pendente")
+                            setComprasPendentes((pendentes || []).length)
+                            setPedidosPendentes(pendentes || [])
+                          } catch (_) {
+                            // ignore
+                          }
+                        }
+                        await load()
+                      } catch (e: any) {
+                        toast({ title: "Erro ao receber pedido", description: e.message, variant: "destructive" })
+                      } finally {
+                        setRecebendo(null)
+                      }
+                    }}
+                  >
+                    {recebendo === p.id ? "Recebendo..." : "Receber"}
+                  </Button>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
       {/* Alertas Críticos */}
       <Card>

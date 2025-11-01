@@ -4,6 +4,8 @@ import { Plus } from "lucide-react"
 import Link from "next/link"
 // import { AppointmentsList } from "@/components/appointments-list"
 import { AppointmentsFilterSection } from "@/components/appointments/appointments-filter-section"
+import { DashboardCalendar } from "@/components/dashboard-calendar"
+import { RecentAppointments } from "@/components/recent-appointments"
 
 export default async function AppointmentsPage() {
   const supabase = await getSupabaseServerClient()
@@ -66,6 +68,18 @@ export default async function AppointmentsPage() {
       </div>
 
       <AppointmentsFilterSection appointments={appointments || []} userRole={userData?.role || "CLIENT"} />
+
+      {/* Calendário e próximos agendamentos movidos para esta página */}
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <DashboardCalendar />
+        {(() => {
+          const today = new Date()
+          const upcoming = (appointments || [])
+            .filter((a: any) => new Date(a.date + 'T00:00:00') >= new Date(today.getFullYear(), today.getMonth(), today.getDate()))
+            .slice(0, 5)
+          return <RecentAppointments appointments={upcoming} />
+        })()}
+      </div>
     </div>
   )
 }
