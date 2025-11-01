@@ -15,20 +15,24 @@ export default async function DashboardPage() {
   const monthEnd = endOfMonth(today)
 
   // Get statistics
+  // Contagens principais
   const [
-    { count: appointmentsCount },
+    { count: totalSchedulesCount },
     { count: professionalsCount },
     { count: servicesCount },
-    { count: monthAppointmentsCount },
+    { data: activeSchedulesThisMonth },
   ] = await Promise.all([
-    supabase.from("appointments").select("*", { count: "exact", head: true }),
-    supabase.from("professionals").select("*", { count: "exact", head: true }),
-    supabase.from("services").select("*", { count: "exact", head: true }),
+    // Agendamentos totais devem enxergar schedules (apenas ativos)
+    supabase.from("schedules").select("*", { count: "exact", head: true }).eq("is_active", true),
+    // Contar apenas profissionais ativos
+    supabase.from("professionals").select("*", { count: "exact", head: true }).eq("is_active", true),
+    // Contar apenas serviços ativos (disponíveis)
+    supabase.from("services").select("*", { count: "exact", head: true }).eq("is_active", true),
+    // Para o mês: precisamos dos schedules ativos para computar ocorrências no mês por dia da semana
     supabase
-      .from("appointments")
-      .select("*", { count: "exact", head: true })
-      .gte("date", format(monthStart, "yyyy-MM-dd"))
-      .lte("date", format(monthEnd, "yyyy-MM-dd")),
+      .from("schedules")
+      .select("day_of_week")
+      .eq("is_active", true),
   ])
 
   // Build monthly chart data (last 12 months)
@@ -90,7 +94,7 @@ export default async function DashboardPage() {
     revenue: revenueByMonth[m.key] || 0,
   }))
 
-  // Compute new vs returning clients for current month
+  // Compute new vs returning clients para o mês atual (mantendo fonte de appointments para este gráfico)
   const { data: apptsThisMonth } = await supabase
     .from("appointments")
     .select("client_id, date")
@@ -112,6 +116,21 @@ export default async function DashboardPage() {
     newCount = clientsThisMonthSet.size - returningCount
   }
 
+  // Calcular "Agendamentos do Mês" com base nos schedules ativos
+  const countOccurrencesOfDowInMonth = (dow: number) => {
+    let count = 0
+    const d = new Date(monthStart)
+    while (d <= monthEnd) {
+      if (d.getDay() === dow) count++
+      d.setDate(d.getDate() + 1)
+    }
+    return count
+  }
+
+  const monthAppointmentsCount = (activeSchedulesThisMonth || [])
+    .map((s: any) => s.day_of_week as number)
+    .reduce((sum: number, dow: number) => sum + countOccurrencesOfDowInMonth(dow), 0)
+
   // Get recent appointments
   const { data: recentAppointments } = await supabase
     .from("appointments")
@@ -130,16 +149,16 @@ export default async function DashboardPage() {
 
   const stats = [
     {
-      title: "Agendamentos Totais",
-      value: appointmentsCount || 0,
+      title: "Horários ativos (mês)",
+      value: totalSchedulesCount || 0,
       icon: Calendar,
-      description: "Total de agendamentos",
+      description: "Horários ativos neste mês",
     },
     {
-      title: "Agendamentos do Mês",
+      title: "Horários neste mês",
       value: monthAppointmentsCount || 0,
       icon: TrendingUp,
-      description: "Neste mês",
+      description: "Ocorrências no calendário",
     },
     {
       title: "Profissionais",
