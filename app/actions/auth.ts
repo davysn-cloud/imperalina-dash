@@ -44,7 +44,9 @@ export async function registerUser(data: {
       })
 
       if (authError) {
-        return { error: authError.message }
+        const msg = authError.message || "Erro ao criar usuário"
+        const isDuplicate = /already|registered|exists|duplicate/i.test(msg)
+        return { error: isDuplicate ? "Email já está cadastrado" : msg, code: isDuplicate ? "EMAIL_DUPLICATE" : undefined }
       }
       if (!authData.user) {
         return { error: "Erro ao criar usuário" }
@@ -56,7 +58,9 @@ export async function registerUser(data: {
         data: { name: data.name },
       })
       if (inviteErr) {
-        return { error: inviteErr.message }
+        const msg = inviteErr.message || "Erro ao convidar usuário"
+        const isDuplicate = /already|registered|exists|duplicate/i.test(msg)
+        return { error: isDuplicate ? "Email já está cadastrado" : msg, code: isDuplicate ? "EMAIL_DUPLICATE" : undefined }
       }
       if (!invited.user) {
         return { error: "Erro ao convidar usuário" }
@@ -77,7 +81,9 @@ export async function registerUser(data: {
     })
 
     if (profileError) {
-      return { error: "Erro ao criar perfil: " + profileError.message }
+      const msg = profileError.message || "Erro ao criar perfil"
+      const isDuplicate = /duplicate|unique/i.test(msg) || (profileError as any)?.code === "23505"
+      return { error: isDuplicate ? "Email já está cadastrado" : ("Erro ao criar perfil: " + msg), code: isDuplicate ? "EMAIL_DUPLICATE" : undefined }
     }
 
     return { success: true, userId }

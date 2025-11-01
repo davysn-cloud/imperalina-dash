@@ -85,6 +85,18 @@ export function ClientForm({ client }: ClientFormProps) {
 
         toast.success("Cliente atualizado com sucesso")
       } else {
+        // Pré-checagem rápida: email já existe?
+        const { data: existing, error: existErr } = await supabase
+          .from("users")
+          .select("id")
+          .eq("email", formData.email)
+          .maybeSingle()
+        if (existErr) throw existErr
+        if (existing?.id) {
+          toast.error("Email já está cadastrado")
+          return
+        }
+
         // Create new client via server action (service role) com senha opcional
         const reg = await registerUser({
           email: formData.email,
@@ -92,7 +104,14 @@ export function ClientForm({ client }: ClientFormProps) {
           name: formData.name,
           phone: formData.phone || undefined,
         })
-        if ((reg as any)?.error) throw new Error((reg as any).error)
+        if ((reg as any)?.error) {
+          const errMsg = (reg as any)?.error as string
+          if ((reg as any)?.code === "EMAIL_DUPLICATE" || /duplicado|duplicate|exists/i.test(errMsg)) {
+            toast.error("Email já está cadastrado")
+            return
+          }
+          throw new Error(errMsg)
+        }
         const newUserId = (reg as any)?.userId as string
         if (!newUserId) throw new Error("Falha ao obter ID do usuário recém-criado")
 
@@ -120,7 +139,12 @@ export function ClientForm({ client }: ClientFormProps) {
       router.refresh()
     } catch (error) {
       console.error("[v0] Error saving client:", error)
-      toast.error("Erro ao salvar cliente")
+      const msg = (error as any)?.message || "Erro ao salvar cliente"
+      if (/duplicado|duplicate|exists/i.test(msg)) {
+        toast.error("Email já está cadastrado")
+      } else {
+        toast.error("Erro ao salvar cliente")
+      }
     } finally {
       setIsLoading(false)
     }

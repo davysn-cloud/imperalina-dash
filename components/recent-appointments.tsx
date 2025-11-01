@@ -12,7 +12,7 @@ interface Appointment {
   id: string
   date: string
   start_time: string
-  status: string
+  status: "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED"
   client: {
     name: string
   }
@@ -33,17 +33,17 @@ interface RecentAppointmentsProps {
 }
 
 const STATUS_LABELS: Record<string, string> = {
-  pending: "Pendente",
-  confirmed: "Confirmado",
-  cancelled: "Cancelado",
-  completed: "Concluído",
+  PENDING: "Pendente",
+  CONFIRMED: "Confirmado",
+  CANCELLED: "Cancelado",
+  COMPLETED: "Concluído",
 }
 
 const STATUS_VARIANTS: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  pending: "secondary",
-  confirmed: "default",
-  cancelled: "destructive",
-  completed: "outline",
+  PENDING: "secondary",
+  CONFIRMED: "default",
+  CANCELLED: "destructive",
+  COMPLETED: "outline",
 }
 
 export function RecentAppointments({ appointments }: RecentAppointmentsProps) {

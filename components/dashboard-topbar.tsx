@@ -45,6 +45,7 @@ const navigation = [
   { name: "Horários", href: "/schedules", icon: Clock },
   { name: "Clientes", href: "/clients", icon: UserCircle, adminOnly: true },
   { name: "Painel Admin", href: "/admin", icon: Shield, adminOnly: true },
+  { name: "Configurações de Perfil", href: "/settings/profile", icon: UserCircle },
 ]
 
 export function DashboardTopbar({ user }: TopbarProps) {

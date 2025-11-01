@@ -40,9 +40,9 @@ const navigation = [
   { name: "Movimentações", href: "/estoque/movimentacoes", icon: ArrowLeftRight, adminOnly: true, isSubItem: true },
   { name: "Profissionais", href: "/professionals", icon: Users, adminOnly: true },
   { name: "Serviços", href: "/services", icon: Briefcase },
-  { name: "Horários", href: "/schedules", icon: Clock },
   { name: "Clientes", href: "/clients", icon: UserCircle, adminOnly: true },
   { name: "Painel Admin", href: "/admin", icon: Shield, adminOnly: true },
+  { name: "Configurações de Perfil", href: "/settings/profile", icon: UserCircle },
 ]
 
 export function Sidebar({ user }: SidebarProps) {

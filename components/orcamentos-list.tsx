@@ -8,6 +8,9 @@ import Link from "next/link"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import type { Orcamento } from "@/lib/types"
+import { getSupabaseBrowserClient } from "@/lib/supabase/client"
+import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 
 interface OrcamentosListProps {
   orcamentos: Orcamento[]
@@ -28,6 +31,27 @@ const statusLabels = {
 }
 
 export function OrcamentosList({ orcamentos }: OrcamentosListProps) {
+  const supabase = getSupabaseBrowserClient()
+  const router = useRouter()
+
+  const handleDelete = async (id: string) => {
+    const confirmed = window.confirm("Tem certeza que deseja excluir este orçamento?")
+    if (!confirmed) return
+
+    const { error } = await supabase.from("orcamentos").delete().eq("id", id)
+    if (error) {
+      const msg = error.message || "Erro ao excluir orçamento"
+      // Mensagem mais clara para RLS/perm.: apenas criador ou admin podem excluir
+      if (/permission|rls|denied/i.test(msg)) {
+        toast.error("Você não tem permissão para excluir este orçamento")
+      } else {
+        toast.error("Erro ao excluir orçamento")
+      }
+      return
+    }
+    toast.success("Orçamento excluído com sucesso")
+    router.refresh()
+  }
   if (orcamentos.length === 0) {
     return (
       <Card>
@@ -89,23 +113,11 @@ export function OrcamentosList({ orcamentos }: OrcamentosListProps) {
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-2">
-              <Link href={`/orcamentos/${orcamento.id}`}>
-                <Button variant="outline" size="sm">
-                  <Eye className="mr-2 h-4 w-4" />
-                  Visualizar
-                </Button>
-              </Link>
-              <Link href={`/orcamentos/${orcamento.id}/edit`}>
-                <Button variant="outline" size="sm">
-                  <Edit className="mr-2 h-4 w-4" />
-                  Editar
-                </Button>
-              </Link>
               <Button variant="outline" size="sm">
                 <Send className="mr-2 h-4 w-4" />
                 Enviar
               </Button>
-              <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
+              <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => handleDelete(orcamento.id)}>
                 <Trash2 className="h-4 w-4" />
               </Button>
             </div>

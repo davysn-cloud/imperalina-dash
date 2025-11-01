@@ -31,16 +31,36 @@ export function ClientsList({ clients }: ClientsListProps) {
 
   const handleDelete = async (id: string) => {
     if (!confirm("Tem certeza que deseja excluir este cliente?")) return
+    try {
+      // Verifica vínculos: não permitir exclusão se houver agendamentos
+      const { count, error: countErr } = await supabase
+        .from("appointments")
+        .select("id", { count: "exact", head: true })
+        .eq("client_id", id)
 
-    const { error } = await supabase.from("users").delete().eq("id", id)
+      if (countErr) throw countErr
+      if ((count || 0) > 0) {
+        toast.error("Este cliente possui agendamentos e não pode ser excluído.")
+        return
+      }
 
-    if (error) {
+      // Tenta excluir (requer permissão de ADMIN pelas políticas de RLS)
+      const { error } = await supabase.from("users").delete().eq("id", id)
+      if (error) {
+        // Mensagem amigável quando falta permissão
+        const msg = error.message?.toLowerCase().includes("policy") || error.message?.toLowerCase().includes("rls")
+          ? "Você não tem permissão para excluir clientes."
+          : "Erro ao excluir cliente"
+        toast.error(msg)
+        return
+      }
+
+      toast.success("Cliente excluído com sucesso")
+      router.refresh()
+    } catch (err: any) {
+      console.error("Erro ao excluir cliente:", err)
       toast.error("Erro ao excluir cliente")
-      return
     }
-
-    toast.success("Cliente excluído com sucesso")
-    router.refresh()
   }
 
   const filteredClients = clients.filter(
