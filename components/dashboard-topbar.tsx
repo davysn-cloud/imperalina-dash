@@ -85,10 +85,11 @@ export function DashboardTopbar({ user }: TopbarProps) {
 
   const filteredNavigation = navigation.filter((item) => {
     if (user?.role === "ADMIN") return true
-    const passesAdminOnly = !item.adminOnly
-    if (!passesAdminOnly) return false
+    const explicitlyAllowed = Array.isArray(allowedTabs) && allowedTabs.includes(item.href)
+    if (item.href === "/admin") return false
+    if (item.adminOnly) return explicitlyAllowed
     if (!allowedTabs || allowedTabs.length === 0) return true
-    return allowedTabs.includes(item.href)
+    return explicitlyAllowed
   })
 
   const onSelectAvatar: React.ChangeEventHandler<HTMLInputElement> = (e) => {

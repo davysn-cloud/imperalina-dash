@@ -99,15 +99,17 @@ export function Sidebar({ user }: SidebarProps) {
   // - Admin vê tudo
   // - Não-admin vê itens não marcados como adminOnly
 
-  // Se ADMIN, vê tudo. Caso contrário, filtra por adminOnly e allowed_tabs (quando disponível)
+  // Se ADMIN, vê tudo. Caso contrário, filtra por allowed_tabs para itens adminOnly
   const filteredNavigation = navigation.filter((item) => {
     if (user?.role === "ADMIN") return true
-    const passesAdminOnly = !item.adminOnly
-    if (!passesAdminOnly) return false
-    // Se allowedTabs ainda não carregado, mantém apenas não-admin
+    const explicitlyAllowed = Array.isArray(allowedTabs) && allowedTabs.includes(item.href)
+    // Nunca exibir Painel Admin para não-admin
+    if (item.href === "/admin") return false
+    // Itens marcados como adminOnly só aparecem se estiverem em allowed_tabs
+    if (item.adminOnly) return explicitlyAllowed
+    // Itens não-admin aparecem sempre; se houver allowed_tabs, respeita quando explicitamente configurado
     if (!allowedTabs || allowedTabs.length === 0) return true
-    // Item é permitido se a rota estiver na lista
-    return allowedTabs.includes(item.href)
+    return explicitlyAllowed || !item.adminOnly
   })
 
   return (

@@ -13,14 +13,14 @@ export default async function HomePage() {
       const { error } = await supabase.from("users").select("id").limit(1)
 
       if (error && error.code === "PGRST205") {
-        // Table doesn't exist, redirect to setup
-        redirect("/setup")
+        // Table doesn't exist, redirect to dashboard
+        redirect("/dashboard")
       }
 
       redirect("/dashboard")
     } catch (error) {
-      // If any error occurs, redirect to setup
-      redirect("/setup")
+      // If any error occurs, redirect to dashboard
+      redirect("/dashboard")
     }
   } else {
     redirect("/login")
