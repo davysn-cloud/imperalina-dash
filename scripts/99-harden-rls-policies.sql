@@ -109,6 +109,18 @@ CREATE POLICY users_admin_insert
     )
   );
 
+-- Professionals can INSERT clients (users with role = 'CLIENT')
+CREATE POLICY users_professional_insert_clients
+  ON public.users FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.users AS me
+      WHERE me.id = auth.uid() AND me.role = 'PROFESSIONAL'
+    )
+    AND role = 'CLIENT'
+  );
+
 -- Admins can DELETE users
 CREATE POLICY users_admin_delete
   ON public.users FOR DELETE

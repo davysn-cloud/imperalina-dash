@@ -32,7 +32,6 @@ export function ClientForm({ client }: ClientFormProps) {
     name: client?.name || "",
     email: client?.email || "",
     phone: client?.phone || "",
-    password: "",
   })
 
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
@@ -97,10 +96,9 @@ export function ClientForm({ client }: ClientFormProps) {
           return
         }
 
-        // Create new client via server action (service role) com senha opcional
+        // Create new client via server action (service role)
         const reg = await registerUser({
           email: formData.email,
-          password: formData.password || undefined,
           name: formData.name,
           phone: formData.phone || undefined,
         })
@@ -200,18 +198,7 @@ export function ClientForm({ client }: ClientFormProps) {
             />
           </div>
 
-          {!client && (
-            <div className="space-y-2">
-              <Label htmlFor="password">Senha (opcional)</Label>
-              <Input
-                id="password"
-                type="password"
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                placeholder="Deixe vazio para enviar convite por email"
-              />
-            </div>
-          )}
+
 
           <div className="flex gap-2">
             <Button type="submit" disabled={isLoading}>

@@ -25,7 +25,6 @@ async function getSupabaseAdminClient() {
 
 export async function registerUser(data: {
   email: string
-  password?: string
   name: string
   phone?: string
 }) {
@@ -33,51 +32,22 @@ export async function registerUser(data: {
     const supabase = await getSupabaseAdminClient()
 
     let userId: string | null = null
-    if (data.password && data.password.length >= 6) {
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: data.email,
-        password: data.password,
-        email_confirm: true, // Auto-confirm email
-        user_metadata: {
-          name: data.name,
-        },
-      })
-
-      if (authError) {
-        const msg = authError.message || "Erro ao criar usuário"
-        const isDuplicate = /already|registered|exists|duplicate/i.test(msg)
-        return { error: isDuplicate ? "Email já está cadastrado" : msg, code: isDuplicate ? "EMAIL_DUPLICATE" : undefined }
-      }
-      if (!authData.user) {
-        return { error: "Erro ao criar usuário" }
-      }
-      userId = authData.user.id
-    } else {
-      // Sem senha: envia convite por email para definir senha
-      const { data: invited, error: inviteErr } = await supabase.auth.admin.inviteUserByEmail(data.email, {
-        data: { name: data.name },
-      })
-      if (inviteErr) {
-        const msg = inviteErr.message || "Erro ao convidar usuário"
-        const isDuplicate = /already|registered|exists|duplicate/i.test(msg)
-        return { error: isDuplicate ? "Email já está cadastrado" : msg, code: isDuplicate ? "EMAIL_DUPLICATE" : undefined }
-      }
-      if (!invited.user) {
-        return { error: "Erro ao convidar usuário" }
-      }
-      userId = invited.user.id
-    }
+    
+    // Para clientes, não criamos conta de autenticação - apenas o perfil
+    // Gerar um UUID aleatório para o ID do cliente
+    userId = crypto.randomUUID()
+    
     if (!userId) {
-      return { error: "Falha ao obter ID do usuário" }
+      return { error: "Falha ao gerar ID do cliente" }
     }
 
-    // Create user profile
-    const { error: profileError } = await supabase.from("users").insert({
-      id: userId,
-      email: data.email,
-      name: data.name,
-      phone: data.phone || null,
-      role: "CLIENT",
+    // Create user profile using RLS bypass function
+    const { error: profileError } = await supabase.rpc('insert_user_bypass_rls', {
+      p_id: userId,
+      p_email: data.email,
+      p_name: data.name,
+      p_role: "CLIENT",
+      p_phone: data.phone || null
     })
 
     if (profileError) {
